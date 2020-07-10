@@ -1,6 +1,6 @@
-module github.com/whyrusleeping/cbor-gen
+module github.com/bdware/cbor-gen
 
-go 1.12
+go 1.14
 
 require (
 	github.com/google/go-cmp v0.4.0

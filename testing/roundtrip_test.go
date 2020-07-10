@@ -7,8 +7,8 @@ import (
 	"testing"
 	"testing/quick"
 
+	cbg "github.com/bdware/cbor-gen"
 	"github.com/google/go-cmp/cmp"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 var alwaysEqual = cmp.Comparer(func(_, _ interface{}) bool { return true })

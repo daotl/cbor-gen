@@ -1,7 +1,7 @@
 package testing
 
 import (
-	cbg "github.com/whyrusleeping/cbor-gen"
+	cbg "github.com/bdware/cbor-gen"
 )
 
 const Thingc = 3

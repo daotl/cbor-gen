@@ -1,8 +1,8 @@
 package main
 
 import (
-	cbg "github.com/whyrusleeping/cbor-gen"
-	types "github.com/whyrusleeping/cbor-gen/testing"
+	cbg "github.com/bdware/cbor-gen"
+	types "github.com/bdware/cbor-gen/testing"
 )
 
 func main() {
