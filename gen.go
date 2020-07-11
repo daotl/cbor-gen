@@ -135,10 +135,20 @@ func nameIsExported(name string) bool {
 func ParseTypeInfo(pkg string, i interface{}) (*GenTypeInfo, error) {
 	t := reflect.TypeOf(i)
 
+	fields := map[string]*Field{}
+	err := parseTypeInfoRecur(pkg, t, 0, fields, map[string]int{})
+
 	out := GenTypeInfo{
 		Name: t.Name(),
 	}
+	for _, f := range fields {
+		out.Fields = append(out.Fields, *f)
+	}
 
+	return &out, err
+}
+
+func parseTypeInfoRecur(pkg string, t reflect.Type, depth int, fields map[string]*Field, depths map[string]int) error {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		if !nameIsExported(f.Name) {
@@ -146,21 +156,29 @@ func ParseTypeInfo(pkg string, i interface{}) (*GenTypeInfo, error) {
 		}
 
 		ft := f.Type
-		var pointer bool
-		if ft.Kind() == reflect.Ptr {
-			ft = ft.Elem()
-			pointer = true
-		}
+		if ft.Kind() == reflect.Struct && f.Anonymous {
+			parseTypeInfoRecur(pkg, ft, depth+1, fields, depths)
+		} else {
 
-		out.Fields = append(out.Fields, Field{
-			Name:    f.Name,
-			Pointer: pointer,
-			Type:    ft,
-			Pkg:     pkg,
-		})
+			var pointer bool
+			if ft.Kind() == reflect.Ptr {
+				ft = ft.Elem()
+				pointer = true
+			}
+
+			if prevDepth, ok := depths[f.Name]; !ok || depth < prevDepth {
+				depths[f.Name] = depth
+				fields[f.Name] = &Field{
+					Name:    f.Name,
+					Pointer: pointer,
+					Type:    ft,
+					Pkg:     pkg,
+				}
+			}
+		}
 	}
 
-	return &out, nil
+	return nil
 }
 
 func (gti GenTypeInfo) TupleHeader() []byte {
