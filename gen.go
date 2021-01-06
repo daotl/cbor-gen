@@ -381,18 +381,23 @@ func emitCborMarshalMapField(w io.Writer, f Field) error {
 `)
 }
 
-func emitCborMarshalSliceField(w io.Writer, f Field) error {
+func emitCborMarshalArrayOrSliceField(w io.Writer, f Field, isSlice bool) error {
 	if f.Pointer {
 		return fmt.Errorf("pointers to slices not supported")
 	}
 	e := f.Type.Elem()
 
-	err := doTemplate(w, f, `
+	templ := `
+    {`
+	if isSlice {
+		templ = `
 	if {{ .Name }} == nil {
 		if _, err := w.Write(cbg.CborNull); err != nil {
 			return err
 		}
-	} else {`)
+	} else {`
+	}
+	err := doTemplate(w, f, templ)
 	if err != nil {
 		return err
 	}
@@ -479,7 +484,7 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 
 	case reflect.Slice:
 		subf := Field{Name: "v", Type: e, Pkg: f.Pkg}
-		if err := emitCborMarshalSliceField(w, subf); err != nil {
+		if err := emitCborMarshalArrayOrSliceField(w, subf, true); err != nil {
 			return err
 		}
 	}
@@ -512,6 +517,7 @@ func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 		fmt.Fprintf(w, "\n\t// t.%s (%s) (%s)", f.Name, f.Type, f.Type.Kind())
 		f.Name = "t." + f.Name
 
+		isArray := false
 		switch f.Type.Kind() {
 		case reflect.String:
 			if err := emitCborMarshalStringField(w, f); err != nil {
@@ -534,9 +540,10 @@ func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		case reflect.Array:
+			isArray = true
 			fallthrough
 		case reflect.Slice:
-			if err := emitCborMarshalSliceField(w, f); err != nil {
+			if err := emitCborMarshalArrayOrSliceField(w, f, !isArray); err != nil {
 				return err
 			}
 		case reflect.Bool:
@@ -857,7 +864,7 @@ func emitCborUnmarshalMapField(w io.Writer, f Field) error {
 `)
 }
 
-func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
+func emitCborUnmarshalArrayOrSliceField(w io.Writer, f Field, isSlice bool) error {
 	if f.IterLabel == "" {
 		f.IterLabel = "i"
 	}
@@ -869,15 +876,22 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 		e = e.Elem()
 	}
 
-	err := doTemplate(w, f, `
+	templ := `
 	maj, extra, err = {{ ReadHeader "br" }}
 	if err != nil {
 		return err
 	}
-
+`
+	if isSlice {
+		templ += `
 	if maj == cbg.MajOther && extra == 22 {
 		{{ .Name }} = nil
-	} else {`)
+	} else {`
+	} else {
+		templ += `
+    {`
+	}
+	err := doTemplate(w, f, templ)
 	if err != nil {
 		return err
 	}
@@ -917,7 +931,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 	
 		{{ .Name }} = {{ .TypeName }}{}
 		{{else}}
-		if extra > 0 {
+		if extra >= 0 {
 			{{ .Name }} = make({{ .TypeName }}, extra)
 		}
 		{{end}}
@@ -927,6 +941,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 		return err
 	}
 
+	isArray := false
 	switch e.Kind() {
 	case reflect.Struct:
 		fname := e.PkgPath() + "." + e.Name()
@@ -989,6 +1004,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 			return err
 		}
 	case reflect.Array:
+		isArray = true
 		fallthrough
 	case reflect.Slice:
 		nextIter := string([]byte{f.IterLabel[0] + 1})
@@ -999,7 +1015,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 			Pkg:       f.Pkg,
 		}
 		fmt.Fprintf(w, "\t\t{\n\t\t\tvar maj byte\n\t\tvar extra uint64\n\t\tvar err error\n")
-		if err := emitCborUnmarshalSliceField(w, subf); err != nil {
+		if err := emitCborUnmarshalArrayOrSliceField(w, subf, !isArray); err != nil {
 			return err
 		}
 		fmt.Fprintf(w, "\t\t}\n")
@@ -1041,6 +1057,7 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 		fmt.Fprintf(w, "\t// t.%s (%s) (%s)\n", f.Name, f.Type, f.Type.Kind())
 		f.Name = "t." + f.Name
 
+		isArray := false
 		switch f.Type.Kind() {
 		case reflect.String:
 			if err := emitCborUnmarshalStringField(w, f); err != nil {
@@ -1063,9 +1080,10 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		case reflect.Array:
+			isArray = true
 			fallthrough
 		case reflect.Slice:
-			if err := emitCborUnmarshalSliceField(w, f); err != nil {
+			if err := emitCborUnmarshalArrayOrSliceField(w, f, !isArray); err != nil {
 				return err
 			}
 		case reflect.Bool:
@@ -1132,6 +1150,7 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo) error {
 
 		f.Name = "t." + f.Name
 
+		isArray := false
 		switch f.Type.Kind() {
 		case reflect.String:
 			if err := emitCborMarshalStringField(w, f); err != nil {
@@ -1154,9 +1173,10 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo) error {
 				return err
 			}
 		case reflect.Array:
+			isArray = true
 			fallthrough
 		case reflect.Slice:
-			if err := emitCborMarshalSliceField(w, f); err != nil {
+			if err := emitCborMarshalArrayOrSliceField(w, f, !isArray); err != nil {
 				return err
 			}
 		case reflect.Bool:
@@ -1228,6 +1248,7 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 
 		f.Name = "t." + f.Name
 
+		isArray := false
 		switch f.Type.Kind() {
 		case reflect.String:
 			if err := emitCborUnmarshalStringField(w, f); err != nil {
@@ -1250,9 +1271,10 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 				return err
 			}
 		case reflect.Array:
+			isArray = true
 			fallthrough
 		case reflect.Slice:
-			if err := emitCborUnmarshalSliceField(w, f); err != nil {
+			if err := emitCborUnmarshalArrayOrSliceField(w, f, !isArray); err != nil {
 				return err
 			}
 		case reflect.Bool:
