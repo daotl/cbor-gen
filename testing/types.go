@@ -6,17 +6,19 @@ import (
 
 const Thingc = 3
 
-type NaturalNumber uint64
+type NamedNumber uint64
+type NamedString string
 
 type SignedArray struct {
 	Signed []uint64
 }
 
 type SimpleTypeOne struct {
-	Foo    string
-	Value  uint64
-	Binary []byte
-	Signed int64
+	Foo     string
+	Value   uint64
+	Binary  []byte
+	Signed  int64
+	NString NamedString
 }
 
 type SimpleTypeTwo struct {
@@ -25,9 +27,9 @@ type SimpleTypeTwo struct {
 	SignedOthers []int64
 	Test         [][]byte
 	Dog          string
-	Numbers      []NaturalNumber
+	Numbers      []NamedNumber
 	Pizza        *uint64
-	PointyPizza  *NaturalNumber
+	PointyPizza  *NamedNumber
 	Arrrrrghay   [Thingc]SimpleTypeOne
 }
 
@@ -45,6 +47,23 @@ type DeferredContainer struct {
 	Stuff    *SimpleTypeOne
 	Deferred *cbg.Deferred
 	Value    uint64
+}
+
+type FixedArrays struct {
+	Bytes  [20]byte
+	Uint8  [20]uint8
+	Uint64 [20]uint64
+}
+
+type ThingWithSomeTime struct {
+	When    cbg.CborTime
+	Stuff   int64
+	CatName string
+}
+
+// Do not add fields to this type.
+type NeedScratchForMap struct {
+	Thing bool
 }
 
 type EmbeddingAnonymousStructOne struct {
@@ -70,7 +89,7 @@ type EmbeddingAnonymousStructTwo struct {
 	SignedOthers []int64
 	Test         [][]byte
 	Dog          string
-	Numbers      []NaturalNumber
+	Numbers      []NamedNumber
 }
 
 func (s EmbeddingAnonymousStructTwo) Zero() {
@@ -88,9 +107,9 @@ type EmbeddingAnonymousStructThree struct {
 	SignedOthers []int64
 	Test         [][]byte
 	Dog          string
-	Numbers      []NaturalNumber
+	Numbers      []NamedNumber
 	Pizza        *uint64
-	PointyPizza  *NaturalNumber
+	PointyPizza  *NamedNumber
 	Arrrrrghay   [Thingc]SimpleTypeOne
 }
 

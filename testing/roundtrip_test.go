@@ -2,10 +2,12 @@ package testing
 
 import (
 	"bytes"
+	"encoding/json"
 	"math/rand"
 	"reflect"
 	"testing"
 	"testing/quick"
+	"time"
 
 	cbg "github.com/bdware/cbor-gen"
 	"github.com/google/go-cmp/cmp"
@@ -35,6 +37,10 @@ func TestSimpleTypeTwo(t *testing.T) {
 
 func TestSimpleTypeTree(t *testing.T) {
 	testTypeRoundtrips(t, reflect.TypeOf(SimpleTypeTree{}))
+}
+
+func TestNeedScratchForMap(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(NeedScratchForMap{}))
 }
 
 func TestEmbeddingAnonymousStructOne(t *testing.T) {
@@ -125,4 +131,55 @@ func TestNilValueDeferredUnmarshaling(t *testing.T) {
 	if n.Deferred == nil {
 		t.Fatal("shouldnt be nil!")
 	}
+}
+
+func TestFixedArrays(t *testing.T) {
+	zero := &FixedArrays{}
+	recepticle := &FixedArrays{}
+	testValueRoundtrip(t, zero, recepticle)
+}
+
+func TestTimeIsh(t *testing.T) {
+	val := &ThingWithSomeTime{
+		When:    cbg.CborTime(time.Now()),
+		Stuff:   1234,
+		CatName: "hank",
+	}
+
+	buf := new(bytes.Buffer)
+	if err := val.MarshalCBOR(buf); err != nil {
+		t.Fatal(err)
+	}
+
+	out := ThingWithSomeTime{}
+	if err := out.UnmarshalCBOR(buf); err != nil {
+		t.Fatal(err)
+	}
+
+	if out.When.Time().UnixNano() != val.When.Time().UnixNano() {
+		t.Fatal("time didnt round trip properly", out.When.Time(), val.When.Time())
+	}
+
+	if out.Stuff != val.Stuff {
+		t.Fatal("no")
+	}
+
+	if out.CatName != val.CatName {
+		t.Fatal("no")
+	}
+
+	b, err := json.Marshal(val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var out2 ThingWithSomeTime
+	if err := json.Unmarshal(b, &out2); err != nil {
+		t.Fatal(err)
+	}
+
+	if out2.When != out.When {
+		t.Fatal(err)
+	}
+
 }

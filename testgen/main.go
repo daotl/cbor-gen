@@ -11,6 +11,8 @@ func main() {
 		types.SimpleTypeOne{},
 		types.SimpleTypeTwo{},
 		types.DeferredContainer{},
+		types.FixedArrays{},
+		types.ThingWithSomeTime{},
 		types.EmbeddingAnonymousStructOne{},
 		types.EmbeddingAnonymousStructTwo{},
 		types.EmbeddingAnonymousStructThree{},
@@ -20,6 +22,7 @@ func main() {
 
 	if err := cbg.WriteMapEncodersToFile("testing/cbor_map_gen.go", "testing",
 		types.SimpleTypeTree{},
+		types.NeedScratchForMap{},
 		types.EmbeddingAnonymousStructTree{},
 	); err != nil {
 		panic(err)
