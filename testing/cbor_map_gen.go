@@ -440,3 +440,468 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 	return nil
 }
+func (t *EmbeddingAnonymousStructTree) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write([]byte{168}); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.SixtyThreeBitIntegerWithASignBit (int64) (int64)
+	if len("SixtyThreeBitIntegerWithASignBit") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"SixtyThreeBitIntegerWithASignBit\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("SixtyThreeBitIntegerWithASignBit"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "SixtyThreeBitIntegerWithASignBit"); err != nil {
+		return err
+	}
+
+	if t.SixtyThreeBitIntegerWithASignBit >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.SixtyThreeBitIntegerWithASignBit)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.SixtyThreeBitIntegerWithASignBit-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.NotPizza (uint64) (uint64)
+	if len("NotPizza") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"NotPizza\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("NotPizza"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "NotPizza"); err != nil {
+		return err
+	}
+
+	if t.NotPizza == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(*t.NotPizza)); err != nil {
+			return err
+		}
+	}
+
+	// t.Stuff (testing.EmbeddingAnonymousStructTree) (struct)
+	if len("Stuff") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Stuff\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Stuff"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "Stuff"); err != nil {
+		return err
+	}
+
+	if err := t.Stuff.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Stufff (testing.EmbeddingAnonymousStructOne) (struct)
+	if len("Stufff") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Stufff\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Stufff"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "Stufff"); err != nil {
+		return err
+	}
+
+	if err := t.Stufff.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.EmbeddingAnonymousStructTwo (testing.EmbeddingAnonymousStructTwo) (struct)
+	if len("EmbeddingAnonymousStructTwo") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"EmbeddingAnonymousStructTwo\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("EmbeddingAnonymousStructTwo"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "EmbeddingAnonymousStructTwo"); err != nil {
+		return err
+	}
+
+	if err := t.EmbeddingAnonymousStructTwo.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Others ([]uint64) (slice)
+	if len("Others") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Others\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Others"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "Others"); err != nil {
+		return err
+	}
+
+	if t.Others == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(t.Others) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Others was too long")
+		}
+
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Others))); err != nil {
+			return err
+		}
+		for _, v := range t.Others {
+			if err := cbg.CborWriteHeader(w, cbg.MajUnsignedInt, uint64(v)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Test ([][]uint8) (slice)
+	if len("Test") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Test\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Test"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "Test"); err != nil {
+		return err
+	}
+
+	if t.Test == nil {
+		if _, err := w.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(t.Test) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Test was too long")
+		}
+
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Test))); err != nil {
+			return err
+		}
+		for _, v := range t.Test {
+			if v == nil {
+				if _, err := w.Write(cbg.CborNull); err != nil {
+					return err
+				}
+			} else {
+				if len(v) > cbg.ByteArrayMaxLen {
+					return xerrors.Errorf("Byte array in field v was too long")
+				}
+
+				if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(v))); err != nil {
+					return err
+				}
+
+				if _, err := w.Write(v); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// t.Dog (string) (string)
+	if len("Dog") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Dog\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("Dog"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, "Dog"); err != nil {
+		return err
+	}
+
+	if len(t.Dog) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Dog was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len(t.Dog))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, t.Dog); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *EmbeddingAnonymousStructTree) UnmarshalCBOR(r io.Reader) error {
+	*t = EmbeddingAnonymousStructTree{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("EmbeddingAnonymousStructTree: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.SixtyThreeBitIntegerWithASignBit (int64) (int64)
+		case "SixtyThreeBitIntegerWithASignBit":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.SixtyThreeBitIntegerWithASignBit = int64(extraI)
+			}
+			// t.NotPizza (uint64) (uint64)
+		case "NotPizza":
+
+			{
+
+				pb, err := br.PeekByte()
+				if err != nil {
+					return err
+				}
+				if pb == cbg.CborNull[0] {
+					var nbuf [1]byte
+					if _, err := br.Read(nbuf[:]); err != nil {
+						return err
+					}
+				} else {
+					maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+					if err != nil {
+						return err
+					}
+					if maj != cbg.MajUnsignedInt {
+						return fmt.Errorf("wrong type for uint64 field")
+					}
+					typed := uint64(extra)
+					t.NotPizza = &typed
+				}
+
+			}
+			// t.Stuff (testing.EmbeddingAnonymousStructTree) (struct)
+		case "Stuff":
+
+			{
+
+				pb, err := br.PeekByte()
+				if err != nil {
+					return err
+				}
+				if pb == cbg.CborNull[0] {
+					var nbuf [1]byte
+					if _, err := br.Read(nbuf[:]); err != nil {
+						return err
+					}
+				} else {
+					t.Stuff = new(EmbeddingAnonymousStructTree)
+					if err := t.Stuff.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Stufff (testing.EmbeddingAnonymousStructOne) (struct)
+		case "Stufff":
+
+			{
+
+				pb, err := br.PeekByte()
+				if err != nil {
+					return err
+				}
+				if pb == cbg.CborNull[0] {
+					var nbuf [1]byte
+					if _, err := br.Read(nbuf[:]); err != nil {
+						return err
+					}
+				} else {
+					t.Stufff = new(EmbeddingAnonymousStructOne)
+					if err := t.Stufff.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.Stufff pointer: %w", err)
+					}
+				}
+
+			}
+			// t.EmbeddingAnonymousStructTwo (testing.EmbeddingAnonymousStructTwo) (struct)
+		case "EmbeddingAnonymousStructTwo":
+
+			{
+
+				pb, err := br.PeekByte()
+				if err != nil {
+					return err
+				}
+				if pb == cbg.CborNull[0] {
+					var nbuf [1]byte
+					if _, err := br.Read(nbuf[:]); err != nil {
+						return err
+					}
+				} else {
+					t.EmbeddingAnonymousStructTwo = new(EmbeddingAnonymousStructTwo)
+					if err := t.EmbeddingAnonymousStructTwo.UnmarshalCBOR(br); err != nil {
+						return xerrors.Errorf("unmarshaling t.EmbeddingAnonymousStructTwo pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Others ([]uint64) (slice)
+		case "Others":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			if maj == cbg.MajOther && extra == 22 {
+				t.Others = nil
+			} else {
+				if extra > cbg.MaxLength {
+					return fmt.Errorf("t.Others: array too large (%d)", extra)
+				}
+
+				if maj != cbg.MajArray {
+					return fmt.Errorf("expected cbor array")
+				}
+
+				if extra >= 0 {
+					t.Others = make([]uint64, extra)
+				}
+
+				for i := 0; i < int(extra); i++ {
+
+					maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+					if err != nil {
+						return xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
+					}
+
+					if maj != cbg.MajUnsignedInt {
+						return xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
+					}
+
+					t.Others[i] = uint64(val)
+				}
+
+			}
+			// t.Test ([][]uint8) (slice)
+		case "Test":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+
+			if maj == cbg.MajOther && extra == 22 {
+				t.Test = nil
+			} else {
+				if extra > cbg.MaxLength {
+					return fmt.Errorf("t.Test: array too large (%d)", extra)
+				}
+
+				if maj != cbg.MajArray {
+					return fmt.Errorf("expected cbor array")
+				}
+
+				if extra >= 0 {
+					t.Test = make([][]uint8, extra)
+				}
+
+				for i := 0; i < int(extra); i++ {
+					{
+						var maj byte
+						var extra uint64
+						var err error
+
+						maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+						if err != nil {
+							return err
+						}
+
+						if maj == cbg.MajOther && extra == 22 {
+							t.Test[i] = nil
+						} else {
+							if extra > cbg.ByteArrayMaxLen {
+								return fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
+							}
+							if maj != cbg.MajByteString {
+								return fmt.Errorf("expected byte array")
+							}
+							t.Test[i] = make([]byte, extra)
+							if _, err := io.ReadFull(br, t.Test[i]); err != nil {
+								return err
+							}
+						}
+					}
+				}
+
+			}
+			// t.Dog (string) (string)
+		case "Dog":
+
+			{
+				sval, err := cbg.ReadStringBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+
+				t.Dog = string(sval)
+			}
+
+		default:
+			return fmt.Errorf("unknown struct field %d: '%s'", i, name)
+		}
+	}
+
+	return nil
+}

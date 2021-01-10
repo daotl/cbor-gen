@@ -37,6 +37,22 @@ func TestSimpleTypeTree(t *testing.T) {
 	testTypeRoundtrips(t, reflect.TypeOf(SimpleTypeTree{}))
 }
 
+func TestEmbeddingAnonymousStructOne(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(EmbeddingAnonymousStructOne{}))
+}
+
+func TestEmbeddingAnonymousStructTwo(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(EmbeddingAnonymousStructTwo{}))
+}
+
+func TestEmbeddingAnonymousStructThree(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(EmbeddingAnonymousStructThree{}))
+}
+
+func TestEmbeddingAnonymousStructTree(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(EmbeddingAnonymousStructTree{}))
+}
+
 func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmarshaler) {
 
 	buf := new(bytes.Buffer)
@@ -76,7 +92,12 @@ func testTypeRoundtrips(t *testing.T, typ reflect.Type) {
 		}
 
 		obj := val.Addr().Interface().(cbg.CBORMarshaler)
+		// use of Call() method
 		nobj := reflect.New(typ).Interface().(cbg.CBORUnmarshaler)
+		zerof := reflect.ValueOf(nobj).MethodByName("Zero")
+		if zerof.IsValid() {
+			zerof.Call([]reflect.Value{})
+		}
 		testValueRoundtrip(t, obj, nobj)
 	}
 }
