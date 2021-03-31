@@ -24,6 +24,8 @@ func main() {
 		types.SimpleTypeTree{},
 		types.NeedScratchForMap{},
 		types.EmbeddingAnonymousStructTree{},
+		types.SimpleStructV1{},
+		types.SimpleStructV2{},
 	); err != nil {
 		panic(err)
 	}
