@@ -73,6 +73,24 @@ var _ = sort.Sort
 `)
 }
 
+func emitInitNilEmbeddedStructMethod(w io.Writer, gti *GenTypeInfo,
+	embeddedByPointerStructs []string) error {
+	data := struct {
+		Name   string
+		Embeds []string
+	}{gti.Name, embeddedByPointerStructs}
+	return doTemplate(w, data, `
+func (t *{{ .Name }}) InitNilEmbeddedStruct() {
+	if t != nil {
+		{{ range .Embeds }}if t.{{ . }} == nil {
+			t.{{ . }} = &{{ . }}{}
+		}
+		t.{{ . }}.InitNilEmbeddedStruct(){{ end }}	}
+}
+
+`)
+}
+
 type Field struct {
 	Name    string
 	Pointer bool
@@ -172,15 +190,29 @@ func nameIsExported(name string) bool {
 	return strings.ToUpper(name[0:1]) == name[0:1]
 }
 
-func ParseTypeInfo(i interface{}) (*GenTypeInfo, error) {
+func ParseTypeInfo(i interface{}, flattenEmbeddedStruct bool) (
+	gti *GenTypeInfo, embeddedByPointerStructs *[]string, err error) {
 	t := reflect.TypeOf(i)
 
 	pkg := t.PkgPath()
 
-	out := GenTypeInfo{
+	fields := map[string]*Field{}
+	embeddedByPointerStructs = &[]string{}
+	err = parseTypeInfoRecur(pkg, t, flattenEmbeddedStruct, 0, fields,
+		map[string]int{}, embeddedByPointerStructs)
+
+	gti = &GenTypeInfo{
 		Name: t.Name(),
 	}
+	for _, f := range fields {
+		gti.Fields = append(gti.Fields, *f)
+	}
 
+	return gti, embeddedByPointerStructs, err
+}
+
+func parseTypeInfoRecur(pkg string, t reflect.Type, flattenEmbeddedStruct bool, depth int,
+	fields map[string]*Field, depths map[string]int, embeddedByPointerStructs *[]string) error {
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		if !nameIsExported(f.Name) {
@@ -194,15 +226,29 @@ func ParseTypeInfo(i interface{}) (*GenTypeInfo, error) {
 			pointer = true
 		}
 
-		out.Fields = append(out.Fields, Field{
-			Name:    f.Name,
-			Pointer: pointer,
-			Type:    ft,
-			Pkg:     pkg,
-		})
+		if flattenEmbeddedStruct && ft.Kind() == reflect.Struct && f.Anonymous {
+			// Only record first-level structs embedded by pointer
+			if depth == 0 && pointer {
+				*embeddedByPointerStructs = append(*embeddedByPointerStructs, f.Name)
+			}
+			parseTypeInfoRecur(pkg, ft, true, depth+1, fields, depths, nil)
+		} else {
+			if flattenEmbeddedStruct {
+				if prevDepth, ok := depths[f.Name]; ok && prevDepth < depth {
+					continue
+				}
+				depths[f.Name] = depth
+			}
+			fields[f.Name] = &Field{
+				Name:    f.Name,
+				Pointer: pointer,
+				Type:    ft,
+				Pkg:     pkg,
+			}
+		}
 	}
 
-	return &out, nil
+	return nil
 }
 
 func (gti GenTypeInfo) TupleHeader() []byte {
@@ -501,14 +547,27 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 	return nil
 }
 
-func emitCborMarshalStructTuple(w io.Writer, gti *GenTypeInfo) error {
+func emitCborMarshalStructTuple(w io.Writer, gti *GenTypeInfo, flattenEmbeddedStruct bool) error {
 	// 9 byte buffer to accomodate for the maximum header length (cbor varints are maximum 9 bytes_
 	err := doTemplate(w, gti, `var lengthBuf{{ .Name }} = {{ .TupleHeaderAsByteString }}
 func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
+	}`)
+	if err != nil {
+		return err
 	}
+
+	if flattenEmbeddedStruct {
+		err = doTemplate(w, gti, `
+	t.InitNilEmbeddedStruct()`)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = doTemplate(w, gti, `
 	if _, err := w.Write(lengthBuf{{ .Name }}); err != nil {
 		return err
 	}
@@ -1022,10 +1081,24 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 	return nil
 }
 
-func emitCborUnmarshalStructTuple(w io.Writer, gti *GenTypeInfo) error {
+func emitCborUnmarshalStructTuple(w io.Writer, gti *GenTypeInfo,
+	flattenEmbeddedStruct bool) error {
 	err := doTemplate(w, gti, `
 func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
-	*t = {{.Name}}{}
+	*t = {{.Name}}{}`)
+	if err != nil {
+		return err
+	}
+
+	if flattenEmbeddedStruct {
+		err = doTemplate(w, gti, `
+	t.InitNilEmbeddedStruct()`)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = doTemplate(w, gti, `
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
@@ -1097,24 +1170,44 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 }
 
 // Generates 'tuple representation' cbor encoders for the given type
-func GenTupleEncodersForType(gti *GenTypeInfo, w io.Writer) error {
-	if err := emitCborMarshalStructTuple(w, gti); err != nil {
+func GenTupleEncodersForType(gti *GenTypeInfo, flattenEmbeddedStruct bool,
+	embeddedByPointerStructs *[]string, w io.Writer) error {
+	if flattenEmbeddedStruct {
+		if err := emitInitNilEmbeddedStructMethod(w, gti, *embeddedByPointerStructs); err != nil {
+			return err
+		}
+	}
+
+	if err := emitCborMarshalStructTuple(w, gti, flattenEmbeddedStruct); err != nil {
 		return err
 	}
 
-	if err := emitCborUnmarshalStructTuple(w, gti); err != nil {
+	if err := emitCborUnmarshalStructTuple(w, gti, flattenEmbeddedStruct); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo) error {
+func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo, flattenEmbeddedStruct bool) error {
 	err := doTemplate(w, gti, `func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
+	}`)
+	if err != nil {
+		return err
 	}
+
+	if flattenEmbeddedStruct {
+		err = doTemplate(w, gti, `
+	t.InitNilEmbeddedStruct()`)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = doTemplate(w, gti, `
 	if _, err := w.Write({{ .MapHeaderAsByteString }}); err != nil {
 		return err
 	}
@@ -1180,10 +1273,24 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo) error {
 	return nil
 }
 
-func emitCborUnmarshalStructMap(w io.Writer, gti *GenTypeInfo) error {
+func emitCborUnmarshalStructMap(w io.Writer, gti *GenTypeInfo,
+	flattenEmbeddedStruct bool) error {
 	err := doTemplate(w, gti, `
 func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
-	*t = {{.Name}}{}
+	*t = {{.Name}}{}`)
+	if err != nil {
+		return err
+	}
+
+	if flattenEmbeddedStruct {
+		err = doTemplate(w, gti, `
+	t.InitNilEmbeddedStruct()`)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = doTemplate(w, gti, `
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
@@ -1285,12 +1392,19 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 }
 
 // Generates 'tuple representation' cbor encoders for the given type
-func GenMapEncodersForType(gti *GenTypeInfo, w io.Writer) error {
-	if err := emitCborMarshalStructMap(w, gti); err != nil {
+func GenMapEncodersForType(gti *GenTypeInfo, flattenEmbeddedStruct bool,
+	embeddedByPointerStructs *[]string, w io.Writer) error {
+	if flattenEmbeddedStruct {
+		if err := emitInitNilEmbeddedStructMethod(w, gti, *embeddedByPointerStructs); err != nil {
+			return err
+		}
+	}
+
+	if err := emitCborMarshalStructMap(w, gti, flattenEmbeddedStruct); err != nil {
 		return err
 	}
 
-	if err := emitCborUnmarshalStructMap(w, gti); err != nil {
+	if err := emitCborUnmarshalStructMap(w, gti, flattenEmbeddedStruct); err != nil {
 		return err
 	}
 

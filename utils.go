@@ -112,6 +112,12 @@ const (
 
 var maxLengthError = fmt.Errorf("length beyond maximum allowed")
 
+type Initter interface {
+	// InitNilEmbeddedStruct prepare the struct for marshalling & unmarshalling by
+	// recursively initialize the structs embedded by pointer to their zero values.
+	InitNilEmbeddedStruct()
+}
+
 type CBORUnmarshaler interface {
 	UnmarshalCBOR(io.Reader) error
 }

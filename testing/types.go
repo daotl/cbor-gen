@@ -23,6 +23,8 @@ type SimpleTypeOne struct {
 	NString NamedString
 }
 
+func (t *SimpleTypeOne) InitNilEmbeddedStruct() {}
+
 type SimpleTypeTwo struct {
 	Stuff        *SimpleTypeTwo
 	Others       []uint64
@@ -35,6 +37,8 @@ type SimpleTypeTwo struct {
 	Arrrrrghay   [Thingc]SimpleTypeOne
 }
 
+func (t *SimpleTypeTwo) InitNilEmbeddedStruct() {}
+
 type SimpleTypeTree struct {
 	Stuff                            *SimpleTypeTree
 	Stufff                           *SimpleTypeTwo
@@ -44,6 +48,8 @@ type SimpleTypeTree struct {
 	SixtyThreeBitIntegerWithASignBit int64
 	NotPizza                         *uint64
 }
+
+func (t *SimpleTypeTree) InitNilEmbeddedStruct() {}
 
 type SimpleStructV1 struct {
 	OldStr    string

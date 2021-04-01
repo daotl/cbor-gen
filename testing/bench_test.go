@@ -1,4 +1,4 @@
-package testing
+package testing_test
 
 import (
 	"bytes"
@@ -12,16 +12,17 @@ import (
 	"github.com/ipfs/go-cid"
 
 	cbg "github.com/daotl/cbor-gen"
+	types "github.com/daotl/cbor-gen/testing"
 )
 
 func BenchmarkMarshaling(b *testing.B) {
 	r := rand.New(rand.NewSource(56887))
-	val, ok := quick.Value(reflect.TypeOf(SimpleTypeTwo{}), r)
+	val, ok := quick.Value(reflect.TypeOf(types.SimpleTypeTwo{}), r)
 	if !ok {
 		b.Fatal("failed to construct type")
 	}
 
-	tt := val.Interface().(SimpleTypeTwo)
+	tt := val.Interface().(types.SimpleTypeTwo)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -35,12 +36,12 @@ func BenchmarkMarshaling(b *testing.B) {
 
 func BenchmarkUnmarshaling(b *testing.B) {
 	r := rand.New(rand.NewSource(123456))
-	val, ok := quick.Value(reflect.TypeOf(SimpleTypeTwo{}), r)
+	val, ok := quick.Value(reflect.TypeOf(types.SimpleTypeTwo{}), r)
 	if !ok {
 		b.Fatal("failed to construct type")
 	}
 
-	tt := val.Interface().(SimpleTypeTwo)
+	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
 	if err := tt.MarshalCBOR(buf); err != nil {
@@ -54,7 +55,7 @@ func BenchmarkUnmarshaling(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		reader.Seek(0, io.SeekStart)
-		var tt SimpleTypeTwo
+		var tt types.SimpleTypeTwo
 		if err := tt.UnmarshalCBOR(reader); err != nil {
 			b.Fatal(err)
 		}
@@ -64,12 +65,12 @@ func BenchmarkUnmarshaling(b *testing.B) {
 
 func BenchmarkLinkScan(b *testing.B) {
 	r := rand.New(rand.NewSource(123456))
-	val, ok := quick.Value(reflect.TypeOf(SimpleTypeTwo{}), r)
+	val, ok := quick.Value(reflect.TypeOf(types.SimpleTypeTwo{}), r)
 	if !ok {
 		b.Fatal("failed to construct type")
 	}
 
-	tt := val.Interface().(SimpleTypeTwo)
+	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
 	if err := tt.MarshalCBOR(buf); err != nil {
@@ -91,12 +92,12 @@ func BenchmarkLinkScan(b *testing.B) {
 
 func BenchmarkDeferred(b *testing.B) {
 	r := rand.New(rand.NewSource(123456))
-	val, ok := quick.Value(reflect.TypeOf(SimpleTypeTwo{}), r)
+	val, ok := quick.Value(reflect.TypeOf(types.SimpleTypeTwo{}), r)
 	if !ok {
 		b.Fatal("failed to construct type")
 	}
 
-	tt := val.Interface().(SimpleTypeTwo)
+	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
 	if err := tt.MarshalCBOR(buf); err != nil {
