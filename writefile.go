@@ -14,24 +14,30 @@ import (
 //
 // The MarshalCBOR and UnmarshalCBOR implementations will marshal/unmarshal each type's fields as a
 // fixed-length CBOR array of field values.
-func WriteTupleEncodersToFile(fname, pkg string, types ...interface{}) error {
+func WriteTupleEncodersToFile(fname, pkg string, flattenEmbeddedStruct bool,
+	types ...interface{}) error {
 	buf := new(bytes.Buffer)
 
 	typeInfos := make([]*GenTypeInfo, len(types))
+	embeddedByPointerStructsInfos := make([]*[]string, len(types))
 	for i, t := range types {
-		gti, err := ParseTypeInfo(t)
+		gti, embeddedByPointerStructs, err := ParseTypeInfo(t, flattenEmbeddedStruct)
 		if err != nil {
 			return xerrors.Errorf("failed to parse type info: %w", err)
 		}
 		typeInfos[i] = gti
+		if flattenEmbeddedStruct {
+			embeddedByPointerStructsInfos[i] = embeddedByPointerStructs
+		}
 	}
 
 	if err := PrintHeaderAndUtilityMethods(buf, pkg, typeInfos); err != nil {
 		return xerrors.Errorf("failed to write header: %w", err)
 	}
 
-	for _, t := range typeInfos {
-		if err := GenTupleEncodersForType(t, buf); err != nil {
+	for i, t := range typeInfos {
+		if err := GenTupleEncodersForType(t, flattenEmbeddedStruct,
+			embeddedByPointerStructsInfos[i], buf); err != nil {
 			return xerrors.Errorf("failed to generate encoders: %w", err)
 		}
 	}
@@ -61,12 +67,14 @@ func WriteTupleEncodersToFile(fname, pkg string, types ...interface{}) error {
 //
 // The MarshalCBOR and UnmarshalCBOR implementations will marshal/unmarshal each type's fields as a
 // map of field names to field values.
-func WriteMapEncodersToFile(fname, pkg string, types ...interface{}) error {
+func WriteMapEncodersToFile(fname, pkg string, flattenEmbeddedStruct bool,
+	types ...interface{}) error {
 	buf := new(bytes.Buffer)
 
 	typeInfos := make([]*GenTypeInfo, len(types))
+	embeddedByPointerStructsInfos := make([]*[]string, len(types))
 	for i, t := range types {
-		gti, err := ParseTypeInfo(t)
+		gti, embeddedByPointerStructs, err := ParseTypeInfo(t, flattenEmbeddedStruct)
 		if err != nil {
 			return xerrors.Errorf("failed to parse type info: %w", err)
 		}
@@ -74,14 +82,18 @@ func WriteMapEncodersToFile(fname, pkg string, types ...interface{}) error {
 			return mapKeySort_RFC7049Less(gti.Fields[i].Name, gti.Fields[j].Name)
 		})
 		typeInfos[i] = gti
+		if flattenEmbeddedStruct {
+			embeddedByPointerStructsInfos[i] = embeddedByPointerStructs
+		}
 	}
 
 	if err := PrintHeaderAndUtilityMethods(buf, pkg, typeInfos); err != nil {
 		return xerrors.Errorf("failed to write header: %w", err)
 	}
 
-	for _, t := range typeInfos {
-		if err := GenMapEncodersForType(t, buf); err != nil {
+	for i, t := range typeInfos {
+		if err := GenMapEncodersForType(t, flattenEmbeddedStruct,
+			embeddedByPointerStructsInfos[i], buf); err != nil {
 			return xerrors.Errorf("failed to generate encoders: %w", err)
 		}
 	}

@@ -1,4 +1,4 @@
-package testing
+package testing_test
 
 import (
 	"bytes"
@@ -13,6 +13,11 @@ import (
 	"github.com/ipfs/go-cid"
 
 	cbg "github.com/daotl/cbor-gen"
+	types "github.com/daotl/cbor-gen/testing"
+	"github.com/daotl/cbor-gen/testing/flatten_map"
+	"github.com/daotl/cbor-gen/testing/flatten_tuple"
+	"github.com/daotl/cbor-gen/testing/noflatten_map"
+	"github.com/daotl/cbor-gen/testing/noflatten_tuple"
 )
 
 var alwaysEqual = cmp.Comparer(func(_, _ interface{}) bool { return true })
@@ -26,26 +31,145 @@ var alwaysEqualOpt = cmp.FilterValues(func(x, y interface{}) bool {
 }, alwaysEqual)
 
 func TestSimpleSigned(t *testing.T) {
-	testTypeRoundtrips(t, reflect.TypeOf(SignedArray{}))
+	testTypeRoundtrips(t, reflect.TypeOf(types.SignedArray{}), false)
 }
 
 func TestSimpleTypeOne(t *testing.T) {
-	testTypeRoundtrips(t, reflect.TypeOf(SimpleTypeOne{}))
+	testTypeRoundtrips(t, reflect.TypeOf(types.SimpleTypeOne{}), false)
 }
 
 func TestSimpleTypeTwo(t *testing.T) {
-	testTypeRoundtrips(t, reflect.TypeOf(SimpleTypeTwo{}))
+	testTypeRoundtrips(t, reflect.TypeOf(types.SimpleTypeTwo{}), false)
 }
 
 func TestSimpleTypeTree(t *testing.T) {
-	testTypeRoundtrips(t, reflect.TypeOf(SimpleTypeTree{}))
+	testTypeRoundtrips(t, reflect.TypeOf(types.SimpleTypeTree{}), false)
 }
 
 func TestNeedScratchForMap(t *testing.T) {
-	testTypeRoundtrips(t, reflect.TypeOf(NeedScratchForMap{}))
+	testTypeRoundtrips(t, reflect.TypeOf(types.NeedScratchForMap{}), false)
 }
 
-func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmarshaler) {
+func TestNoFlattenTuple(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_tuple.EmbeddingStructOne{}), false)
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_tuple.EmbeddingStructTwo{}), false)
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_tuple.EmbeddingStructThree{}), false)
+}
+
+func TestNoFlattenMap(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_map.EmbeddingStructOne{}), false)
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_map.EmbeddingStructTwo{}), false)
+	testTypeRoundtrips(t, reflect.TypeOf(noflatten_map.EmbeddingStructThree{}), false)
+}
+
+func TestFlattenTuple(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_tuple.EmbeddingStructOne{}), true)
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_tuple.EmbeddingStructTwo{}), true)
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_tuple.EmbeddingStructThree{}), true)
+}
+
+func TestFlattenMap(t *testing.T) {
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_map.EmbeddingStructOne{}), true)
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_map.EmbeddingStructTwo{}), true)
+	testTypeRoundtrips(t, reflect.TypeOf(flatten_map.EmbeddingStructThree{}), true)
+}
+
+func TestFlattenEmbeddedStruct(t *testing.T) {
+	r := rand.New(rand.NewSource(56887))
+
+	// Test flatten_tuple
+	for i := 0; i < 1000; i++ {
+		val, ok := quick.Value(reflect.TypeOf(flatten_tuple.FlatStruct{}), r)
+		if !ok {
+			t.Fatal("failed to generate test value")
+		}
+
+		obj := val.Addr().Interface().(cbg.CBORMarshaler)
+		buf := new(bytes.Buffer)
+		if err := obj.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		flatenc := buf.Bytes()
+
+		sv := &flatten_tuple.EmbedByValueStruct{}
+		if err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := sv.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc := buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+
+		sp := &flatten_tuple.EmbedByPointerStruct{}
+		if err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := sp.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc = buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+	}
+
+	// Test flatten_map
+	for i := 0; i < 1000; i++ {
+		val, ok := quick.Value(reflect.TypeOf(flatten_map.FlatStruct{}), r)
+		if !ok {
+			t.Fatal("failed to generate test value")
+		}
+
+		obj := val.Addr().Interface().(cbg.CBORMarshaler)
+		buf := new(bytes.Buffer)
+		if err := obj.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		flatenc := buf.Bytes()
+
+		sv := &flatten_map.EmbedByValueStruct{}
+		if err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := sv.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc := buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+
+		sp := &flatten_map.EmbedByPointerStruct{}
+		if err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := sp.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc = buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+	}
+}
+
+func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmarshaler,
+	onlyCompareBytes bool) {
 
 	buf := new(bytes.Buffer)
 	if err := obj.MarshalCBOR(buf); err != nil {
@@ -59,9 +183,11 @@ func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmars
 		t.Fatal("failed to round trip object: ", err)
 	}
 
-	if !cmp.Equal(obj, nobj, alwaysEqualOpt) {
-		t.Logf("%#v != %#v", obj, nobj)
-		t.Log("not equal after round trip!")
+	if !onlyCompareBytes {
+		if !cmp.Equal(obj, nobj, alwaysEqualOpt) {
+			t.Logf("%#v != %#v", obj, nobj)
+			t.Log("not equal after round trip!")
+		}
 	}
 
 	nbuf := new(bytes.Buffer)
@@ -75,7 +201,7 @@ func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmars
 
 }
 
-func testTypeRoundtrips(t *testing.T, typ reflect.Type) {
+func testTypeRoundtrips(t *testing.T, typ reflect.Type, onlyCompareBytes bool) {
 	r := rand.New(rand.NewSource(56887))
 	for i := 0; i < 1000; i++ {
 		val, ok := quick.Value(typ, r)
@@ -85,18 +211,18 @@ func testTypeRoundtrips(t *testing.T, typ reflect.Type) {
 
 		obj := val.Addr().Interface().(cbg.CBORMarshaler)
 		nobj := reflect.New(typ).Interface().(cbg.CBORUnmarshaler)
-		testValueRoundtrip(t, obj, nobj)
+		testValueRoundtrip(t, obj, nobj, onlyCompareBytes)
 	}
 }
 
 func TestDeferredContainer(t *testing.T) {
-	zero := &DeferredContainer{}
-	recepticle := &DeferredContainer{}
-	testValueRoundtrip(t, zero, recepticle)
+	zero := &types.DeferredContainer{}
+	recepticle := &types.DeferredContainer{}
+	testValueRoundtrip(t, zero, recepticle, false)
 }
 
 func TestNilValueDeferredUnmarshaling(t *testing.T) {
-	var zero DeferredContainer
+	var zero types.DeferredContainer
 	zero.Deferred = &cbg.Deferred{Raw: []byte{0xf6}}
 
 	buf := new(bytes.Buffer)
@@ -104,7 +230,7 @@ func TestNilValueDeferredUnmarshaling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var n DeferredContainer
+	var n types.DeferredContainer
 	if err := n.UnmarshalCBOR(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -115,13 +241,13 @@ func TestNilValueDeferredUnmarshaling(t *testing.T) {
 }
 
 func TestFixedArrays(t *testing.T) {
-	zero := &FixedArrays{}
-	recepticle := &FixedArrays{}
-	testValueRoundtrip(t, zero, recepticle)
+	zero := &types.FixedArrays{}
+	recepticle := &types.FixedArrays{}
+	testValueRoundtrip(t, zero, recepticle, false)
 }
 
 func TestTimeIsh(t *testing.T) {
-	val := &ThingWithSomeTime{
+	val := &types.ThingWithSomeTime{
 		When:    cbg.CborTime(time.Now()),
 		Stuff:   1234,
 		CatName: "hank",
@@ -132,7 +258,7 @@ func TestTimeIsh(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := ThingWithSomeTime{}
+	out := types.ThingWithSomeTime{}
 	if err := out.UnmarshalCBOR(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +280,7 @@ func TestTimeIsh(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var out2 ThingWithSomeTime
+	var out2 types.ThingWithSomeTime
 	if err := json.Unmarshal(b, &out2); err != nil {
 		t.Fatal(err)
 	}
@@ -167,20 +293,20 @@ func TestTimeIsh(t *testing.T) {
 
 func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 	dummyCid, _ := cid.Parse("bafkqaaa")
-	simpleTypeOne := SimpleTypeOne{
+	simpleTypeOne := types.SimpleTypeOne{
 		Foo:     "foo",
 		Value:   1,
 		Binary:  []byte("bin"),
 		Signed:  -1,
 		NString: "namedstr",
 	}
-	obj := &SimpleStructV1{
+	obj := &types.SimpleStructV1{
 		OldStr:    "hello",
 		OldBytes:  []byte("bytes"),
 		OldNum:    10,
 		OldPtr:    &dummyCid,
-		OldMap:    map[string]SimpleTypeOne{"first": simpleTypeOne},
-		OldArray:  []SimpleTypeOne{simpleTypeOne},
+		OldMap:    map[string]types.SimpleTypeOne{"first": simpleTypeOne},
+		OldArray:  []types.SimpleTypeOne{simpleTypeOne},
 		OldStruct: simpleTypeOne,
 	}
 
@@ -191,7 +317,7 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 
 	enc := buf.Bytes()
 
-	nobj := SimpleStructV2{}
+	nobj := types.SimpleStructV2{}
 	if err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
 		t.Logf("got bad bytes: %x", enc)
 		t.Fatal("failed to round trip object: ", err)
@@ -242,7 +368,7 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 	if !cmp.Equal(obj.OldStruct, nobj.OldStruct) {
 		t.Fatal("mismatch struct marshal / unmarshal")
 	}
-	if !cmp.Equal(nobj.NewStruct, SimpleTypeOne{}) {
+	if !cmp.Equal(nobj.NewStruct, types.SimpleTypeOne{}) {
 		t.Fatal("expected field to be zero value")
 	}
 }
@@ -250,21 +376,21 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 	dummyCid1, _ := cid.Parse("bafkqaaa")
 	dummyCid2, _ := cid.Parse("bafkqaab")
-	simpleType1 := SimpleTypeOne{
+	simpleType1 := types.SimpleTypeOne{
 		Foo:     "foo",
 		Value:   1,
 		Binary:  []byte("bin"),
 		Signed:  -1,
 		NString: "namedstr",
 	}
-	simpleType2 := SimpleTypeOne{
+	simpleType2 := types.SimpleTypeOne{
 		Foo:     "bar",
 		Value:   2,
 		Binary:  []byte("bin2"),
 		Signed:  -2,
 		NString: "namedstr2",
 	}
-	obj := &SimpleStructV2{
+	obj := &types.SimpleStructV2{
 		OldStr:    "oldstr",
 		NewStr:    "newstr",
 		OldBytes:  []byte("oldbytes"),
@@ -273,10 +399,10 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 		NewNum:    11,
 		OldPtr:    &dummyCid1,
 		NewPtr:    &dummyCid2,
-		OldMap:    map[string]SimpleTypeOne{"foo": simpleType1},
-		NewMap:    map[string]SimpleTypeOne{"bar": simpleType2},
-		OldArray:  []SimpleTypeOne{simpleType1},
-		NewArray:  []SimpleTypeOne{simpleType1, simpleType2},
+		OldMap:    map[string]types.SimpleTypeOne{"foo": simpleType1},
+		NewMap:    map[string]types.SimpleTypeOne{"bar": simpleType2},
+		OldArray:  []types.SimpleTypeOne{simpleType1},
+		NewArray:  []types.SimpleTypeOne{simpleType1, simpleType2},
 		OldStruct: simpleType1,
 		NewStruct: simpleType2,
 	}
@@ -288,7 +414,7 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 
 	enc := buf.Bytes()
 
-	nobj := SimpleStructV1{}
+	nobj := types.SimpleStructV1{}
 	if err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
 		t.Logf("got bad bytes: %x", enc)
 		t.Fatal("failed to round trip object: ", err)
