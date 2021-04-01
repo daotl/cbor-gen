@@ -1,4 +1,4 @@
-module github.com/whyrusleeping/cbor-gen
+module github.com/daotl/cbor-gen
 
 go 1.12
 

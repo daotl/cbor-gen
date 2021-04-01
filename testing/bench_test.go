@@ -10,7 +10,8 @@ import (
 	"testing/quick"
 
 	"github.com/ipfs/go-cid"
-	cbg "github.com/whyrusleeping/cbor-gen"
+
+	cbg "github.com/daotl/cbor-gen"
 )
 
 func BenchmarkMarshaling(b *testing.B) {
