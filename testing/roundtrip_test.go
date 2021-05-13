@@ -3,7 +3,6 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ipfs/go-cid"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -11,7 +10,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	cbg "github.com/whyrusleeping/cbor-gen"
+	"github.com/ipfs/go-cid"
+
+	cbg "github.com/daotl/cbor-gen"
 )
 
 var alwaysEqual = cmp.Comparer(func(_, _ interface{}) bool { return true })
@@ -174,12 +175,12 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 		NString: "namedstr",
 	}
 	obj := &SimpleStructV1{
-		OldStr: "hello",
-		OldBytes: []byte("bytes"),
-		OldNum: 10,
-		OldPtr: &dummyCid,
-		OldMap: map[string]SimpleTypeOne{"first": simpleTypeOne},
-		OldArray: []SimpleTypeOne{simpleTypeOne},
+		OldStr:    "hello",
+		OldBytes:  []byte("bytes"),
+		OldNum:    10,
+		OldPtr:    &dummyCid,
+		OldMap:    map[string]SimpleTypeOne{"first": simpleTypeOne},
+		OldArray:  []SimpleTypeOne{simpleTypeOne},
 		OldStruct: simpleTypeOne,
 	}
 
@@ -274,8 +275,8 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 		NewPtr:    &dummyCid2,
 		OldMap:    map[string]SimpleTypeOne{"foo": simpleType1},
 		NewMap:    map[string]SimpleTypeOne{"bar": simpleType2},
-		OldArray: []SimpleTypeOne{simpleType1},
-		NewArray: []SimpleTypeOne{simpleType1, simpleType2},
+		OldArray:  []SimpleTypeOne{simpleType1},
+		NewArray:  []SimpleTypeOne{simpleType1, simpleType2},
 		OldStruct: simpleType1,
 		NewStruct: simpleType2,
 	}

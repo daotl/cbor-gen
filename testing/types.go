@@ -2,7 +2,8 @@ package testing
 
 import (
 	"github.com/ipfs/go-cid"
-	cbg "github.com/whyrusleeping/cbor-gen"
+
+	cbg "github.com/daotl/cbor-gen"
 )
 
 const Thingc = 3
@@ -45,12 +46,12 @@ type SimpleTypeTree struct {
 }
 
 type SimpleStructV1 struct {
-	OldStr string
-	OldBytes []byte
-	OldNum uint64
-	OldPtr *cid.Cid
-	OldMap map[string]SimpleTypeOne
-	OldArray []SimpleTypeOne
+	OldStr    string
+	OldBytes  []byte
+	OldNum    uint64
+	OldPtr    *cid.Cid
+	OldMap    map[string]SimpleTypeOne
+	OldArray  []SimpleTypeOne
 	OldStruct SimpleTypeOne
 }
 

@@ -14,7 +14,7 @@ var (
 	pkgPathToPkgName    = make(map[string]string)
 
 	defaultImports = []Import{
-		{Name: "cbg", PkgPath: "github.com/whyrusleeping/cbor-gen"},
+		{Name: "cbg", PkgPath: "github.com/daotl/cbor-gen"},
 		{Name: "xerrors", PkgPath: "golang.org/x/xerrors"},
 		{Name: "cid", PkgPath: "github.com/ipfs/go-cid"},
 	}
