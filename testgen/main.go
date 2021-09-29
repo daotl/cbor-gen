@@ -10,7 +10,8 @@ import (
 )
 
 func main() {
-	if err := cbg.WriteTupleEncodersToFile("testing/cbor_gen.go", "testing", false,
+	if err := cbg.WriteTupleEncodersToFile("testing/cbor_gen.go",
+		"testing", false, nil,
 		types.SignedArray{},
 		types.SimpleTypeOne{},
 		types.SimpleTypeTwo{},
@@ -21,7 +22,8 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("testing/cbor_map_gen.go", "testing", false,
+	if err := cbg.WriteMapEncodersToFile("testing/cbor_map_gen.go",
+		"testing", false,
 		types.SimpleTypeTree{},
 		types.NeedScratchForMap{},
 		types.SimpleStructV1{},
@@ -31,7 +33,7 @@ func main() {
 	}
 
 	if err := cbg.WriteTupleEncodersToFile("testing/noflatten_tuple/cbor_gen.go",
-		"noflatten_tuple", false,
+		"noflatten_tuple", false, nil,
 		noflatten_tuple.EmbeddingStructOne{},
 		noflatten_tuple.EmbeddingStructTwo{},
 		noflatten_tuple.EmbeddingStructThree{},
@@ -49,7 +51,7 @@ func main() {
 	}
 
 	if err := cbg.WriteTupleEncodersToFile("testing/flatten_tuple/cbor_gen.go",
-		"flatten_tuple", true,
+		"flatten_tuple", true, nil,
 		flatten_tuple.EmbeddingStructOne{},
 		flatten_tuple.EmbeddingStructTwo{},
 		flatten_tuple.EmbeddingStructThree{},
@@ -57,6 +59,15 @@ func main() {
 		flatten_tuple.EmbeddedStruct{},
 		flatten_tuple.EmbedByValueStruct{},
 		flatten_tuple.EmbedByPointerStruct{},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := cbg.WriteTupleEncodersToFile("testing/flatten_tuple/cbor_gen_reordered.go",
+		"flatten_tuple", true, []string{"Signed", "Foo", "Binary", "NString", "Value"},
+		flatten_tuple.ReorderedFlatStruct{},
+		flatten_tuple.ReorderedEmbedByValueStruct{},
+		flatten_tuple.ReorderedEmbedByPointerStruct{},
 	); err != nil {
 		panic(err)
 	}

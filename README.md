@@ -138,5 +138,48 @@ type Initter interface {
 }
 ```
 
+### Specifying struct field order
+
+This fork additionally support an option `fieldOrder` in `WriteTupleEncodersToFile` to specify 
+the orders of structs' fields. If specified (not nil), `fieldOrder` is a string slice of struct 
+field names in the order they will be serialized, the remaining field names not found in the 
+slice will be serialized after those specified in the original order of appearance in the code.
+
+For example, we have the following two structs from `testing/flatten_tuple/types.go`:
+
+```go
+type FlatStruct struct {
+	Signed  int64
+	Foo     string
+	Binary  []byte
+	NString NamedString
+	Value   uint64
+}
+
+type ReorderedFlatStruct struct {
+	Foo     string
+	Value   uint64
+	Binary  []byte
+	Signed  int64
+	NString NamedString
+}
+```
+
+They have the same fields with different orders. If we generate the `MarshalCBOR` and 
+`UnmarshalCBOR` with the following options, they will be serialized into and deserialized
+from the same byte sequence:
+
+```go
+cbg.WriteTupleEncodersToFile("testing/flatten_tuple/cbor_gen.go",
+    "flatten_tuple", true, nil,
+    flatten_tuple.FlatStruct{},
+)
+
+cbg.WriteTupleEncodersToFile("testing/flatten_tuple/cbor_gen_reordered.go",
+    "flatten_tuple", true, []string{"Signed", "Foo", "Binary", "NString", "Value"},
+    flatten_tuple.ReorderedFlatStruct{},
+)
+```
+
 ## License
 MIT

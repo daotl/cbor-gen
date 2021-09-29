@@ -120,6 +120,51 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		if !bytes.Equal(enc, flatenc) {
 			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
 		}
+
+		sr := &flatten_tuple.ReorderedFlatStruct{}
+		if err := sr.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := sr.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc = buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+
+		srv := &flatten_tuple.ReorderedEmbedByValueStruct{}
+		if err := srv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := srv.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc = buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
+
+		srp := &flatten_tuple.ReorderedEmbedByValueStruct{}
+		if err := srp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+			t.Logf("got bad bytes: %x", flatenc)
+			t.Fatal("failed to unmarshal object: ", err)
+		}
+		buf = new(bytes.Buffer)
+		if err := srp.MarshalCBOR(buf); err != nil {
+			t.Fatal("i guess its fine to fail marshaling")
+		}
+		enc = buf.Bytes()
+
+		if !bytes.Equal(enc, flatenc) {
+			t.Fatalf("objects encodings different: %x != %x", enc, flatenc)
+		}
 	}
 
 	// Test flatten_map
@@ -155,6 +200,7 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		if err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+			t.Fatal("failed to sunmarshal object: ", err)
 		}
 		buf = new(bytes.Buffer)
 		if err := sp.MarshalCBOR(buf); err != nil {

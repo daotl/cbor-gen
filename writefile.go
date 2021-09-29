@@ -15,7 +15,7 @@ import (
 // The MarshalCBOR and UnmarshalCBOR implementations will marshal/unmarshal each type's fields as a
 // fixed-length CBOR array of field values.
 func WriteTupleEncodersToFile(fname, pkg string, flattenEmbeddedStruct bool,
-	types ...interface{}) error {
+	fieldOrder []string, types ...interface{}) error {
 	buf := new(bytes.Buffer)
 
 	typeInfos := make([]*GenTypeInfo, len(types))
@@ -24,6 +24,33 @@ func WriteTupleEncodersToFile(fname, pkg string, flattenEmbeddedStruct bool,
 		gti, embeddedByPointerStructs, err := ParseTypeInfo(t, flattenEmbeddedStruct)
 		if err != nil {
 			return xerrors.Errorf("failed to parse type info: %w", err)
+		}
+		if fieldOrder != nil {
+			ordered := make([]Field, 0, len(gti.Fields))
+			fieldMap := map[string]*Field{}
+			for i, f := range gti.Fields {
+				fieldMap[f.Name] = &gti.Fields[i]
+			}
+			// First the fields specified in `fieldOrder`
+			for _, name := range fieldOrder {
+				if f, ok := fieldMap[name]; ok {
+					// Mark as picked
+					delete(fieldMap, name)
+					ordered = append(ordered, *f)
+				}
+			}
+			// The remaining fields
+			for _, f := range gti.Fields {
+				if _, ok := fieldMap[f.Name]; ok {
+					ordered = append(ordered, f)
+				}
+			}
+			// Assert that len(ordered) matches the field count, should never panic
+			if len(ordered) != len(gti.Fields) {
+				panic("Bug: len(ordered) != len(gti.Fields)")
+			}
+			// Replace gti.Fields with ordered fields
+			gti.Fields = ordered
 		}
 		typeInfos[i] = gti
 		if flattenEmbeddedStruct {

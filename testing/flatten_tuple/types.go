@@ -78,3 +78,27 @@ type EmbedByPointerStruct struct {
 	NString NamedString
 	Value   uint64
 }
+
+type ReorderedFlatStruct struct {
+	Foo     string
+	Value   uint64
+	Binary  []byte
+	Signed  int64
+	NString NamedString
+}
+
+type ReorderedEmbedByValueStruct struct {
+	EmbeddedStruct
+	Value   uint64
+	Binary  []byte
+	Signed  int64
+	NString NamedString
+}
+
+type ReorderedEmbedByPointerStruct struct {
+	*EmbeddedStruct
+	Value   uint64
+	Binary  []byte
+	Signed  int64
+	NString NamedString
+}
