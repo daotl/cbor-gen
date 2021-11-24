@@ -168,9 +168,14 @@ func (gti *GenTypeInfo) NeedsScratch() bool {
 	for _, f := range gti.Fields {
 		switch f.Type.Kind() {
 		case reflect.String,
-			reflect.Uint64,
-			reflect.Int64,
 			reflect.Uint8,
+			reflect.Uint16,
+			reflect.Uint32,
+			reflect.Uint64,
+			reflect.Int8,
+			reflect.Int16,
+			reflect.Int32,
+			reflect.Int64,
 			reflect.Array,
 			reflect.Slice,
 			reflect.Map:
@@ -382,7 +387,7 @@ func emitCborMarshalUint64Field(w io.Writer, f Field) error {
 `)
 }
 
-func emitCborMarshalUint8Field(w io.Writer, f Field) error {
+func emitCborMarshalUintField(w io.Writer, f Field) error {
 	if f.Pointer {
 		return fmt.Errorf("pointers to integers not supported")
 	}
@@ -391,7 +396,7 @@ func emitCborMarshalUint8Field(w io.Writer, f Field) error {
 `)
 }
 
-func emitCborMarshalInt64Field(w io.Writer, f Field) error {
+func emitCborMarshalIntField(w io.Writer, f Field) error {
 	if f.Pointer {
 		return fmt.Errorf("pointers to integers not supported")
 	}
@@ -478,7 +483,7 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 	e := f.Type.Elem()
 
 	// Note: this re-slices the slice to deal with arrays.
-	if e.Kind() == reflect.Uint8 {
+	if e.Kind() == reflect.Uint8 || e.Kind() == reflect.Int8 {
 		return doTemplate(w, f, `
 	if len({{ .Name }}) > cbg.ByteArrayMaxLen {
 		return xerrors.Errorf("Byte array in field {{ .Name }} was too long")
@@ -533,14 +538,11 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 			}
 		}
 	case reflect.Uint64:
-		err := doTemplate(w, f, `
-		if err := cbg.CborWriteHeader(w, cbg.MajUnsignedInt, uint64(v)); err != nil {
-			return err
-		}
-`)
-		if err != nil {
-			return err
-		}
+		fallthrough
+	case reflect.Uint32:
+		fallthrough
+	case reflect.Uint16:
+		fallthrough
 	case reflect.Uint8:
 		err := doTemplate(w, f, `
 		if err := cbg.CborWriteHeader(w, cbg.MajUnsignedInt, uint64(v)); err != nil {
@@ -550,9 +552,12 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 		if err != nil {
 			return err
 		}
+	case reflect.Int8:
+	case reflect.Int16:
+	case reflect.Int32:
 	case reflect.Int64:
 		subf := Field{Name: "v", Type: e, Pkg: f.Pkg}
-		if err := emitCborMarshalInt64Field(w, subf); err != nil {
+		if err := emitCborMarshalIntField(w, subf); err != nil {
 			return err
 		}
 
@@ -613,24 +618,26 @@ func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 			if err := emitCborMarshalStructField(w, f); err != nil {
 				return err
 			}
-		case reflect.Uint16:
-			fallthrough
-		case reflect.Uint32:
-			fallthrough
 		case reflect.Uint64:
 			if err := emitCborMarshalUint64Field(w, f); err != nil {
 				return err
 			}
 		case reflect.Uint8:
-			if err := emitCborMarshalUint8Field(w, f); err != nil {
+			fallthrough
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			if err := emitCborMarshalUintField(w, f); err != nil {
 				return err
 			}
+		case reflect.Int8:
+			fallthrough
 		case reflect.Int16:
 			fallthrough
 		case reflect.Int32:
 			fallthrough
 		case reflect.Int64:
-			if err := emitCborMarshalInt64Field(w, f); err != nil {
+			if err := emitCborMarshalIntField(w, f); err != nil {
 				return err
 			}
 		case reflect.Array:
@@ -775,32 +782,32 @@ func emitCborUnmarshalStructField(w io.Writer, f Field) error {
 	}
 }
 
-func emitCborUnmarshalInt64Field(w io.Writer, f Field) error {
-	return doTemplate(w, f, `{
+func emitCborUnmarshalIntField(w io.Writer, f Field, len int) error {
+	return doTemplate(w, f, fmt.Sprintf(`{
 	maj, extra, err := {{ ReadHeader "br" }}
-	var extraI int64
+	var extraI int%d
 	if err != nil {
 		return err
 	}
 	switch maj {
 	case cbg.MajUnsignedInt:
-		extraI = int64(extra)
+		extraI = int%d(extra)
 		if extraI < 0 {
-			return fmt.Errorf("int64 positive overflow")
+			return fmt.Errorf("int%d positive overflow")
 	   }
 	case cbg.MajNegativeInt:
-		extraI = int64(extra)
+		extraI = int%d(extra)
 		if extraI < 0 {
-			return fmt.Errorf("int64 negative oveflow")
+			return fmt.Errorf("int%d negative oveflow")
 		}
 		extraI = -1 - extraI
 	default:
-		return fmt.Errorf("wrong type for int64 field: %d", maj)
+		return fmt.Errorf("wrong type for int%d field: %%d", maj)
 	}
 
 	{{ .Name }} = {{ .TypeName }}(extraI)
 }
-`)
+`, len, len, len, len, len, len))
 }
 
 func emitCborUnmarshalUint64Field(w io.Writer, f Field) error {
@@ -839,20 +846,20 @@ func emitCborUnmarshalUint64Field(w io.Writer, f Field) error {
 `)
 }
 
-func emitCborUnmarshalUint8Field(w io.Writer, f Field) error {
-	return doTemplate(w, f, `
+func emitCborUnmarshalUintField(w io.Writer, f Field, len int) error {
+	return doTemplate(w, f, fmt.Sprintf(`
 	maj, extra, err = {{ ReadHeader "br" }}
 	if err != nil {
 		return err
 	}
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint8 field")
+		return fmt.Errorf("wrong type for uint%d field")
 	}
-	if extra > math.MaxUint8 {
-		return fmt.Errorf("integer in input was too large for uint8 field")
+	if extra > math.MaxUint%d {
+		return fmt.Errorf("integer in input was too large for uint%d field")
 	}
 	{{ .Name }} = {{ .TypeName }}(extra)
-`)
+`, len, len, len))
 }
 
 func emitCborUnmarshalBoolField(w io.Writer, f Field) error {
@@ -971,7 +978,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 		return err
 	}
 
-	if e.Kind() == reflect.Uint8 {
+	if e.Kind() == reflect.Uint8 || e.Kind() == reflect.Int8 {
 		return doTemplate(w, f, `
 	if extra > cbg.ByteArrayMaxLen {
 		return fmt.Errorf("{{ .Name }}: byte array too large (%d)", extra)
@@ -1025,6 +1032,7 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 		return err
 	}
 
+	len := 0
 	switch e.Kind() {
 	case reflect.Struct:
 		fname := e.PkgPath() + "." + e.Name()
@@ -1060,29 +1068,60 @@ func emitCborUnmarshalSliceField(w io.Writer, f Field) error {
 				return err
 			}
 		}
+	case reflect.Uint16:
+		if len == 0 {
+			len = 16
+		}
+		fallthrough
+	case reflect.Uint32:
+		if len == 0 {
+			len = 32
+		}
+		fallthrough
 	case reflect.Uint64:
-		err := doTemplate(w, f, `
+		if len == 0 {
+			len = 64
+		}
+		err := doTemplate(w, f, fmt.Sprintf(`
 		maj, val, err := {{ ReadHeader "br" }}
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for {{ .Name }} slice: %w", err)
+			return xerrors.Errorf("failed to read uint%d for {{ .Name }} slice: %%w", err)
 		}
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array {{ .Name }} was not a uint, instead got %d", maj)
+			return xerrors.Errorf("value read for array {{ .Name }} was not a uint, instead got %%d", maj)
 		}
 		
 		{{ .Name }}[{{ .IterLabel}}] = {{ .ElemName }}(val)
-`)
+`, len))
 		if err != nil {
 			return err
 		}
+	case reflect.Int8:
+		if len == 0 {
+			len = 8
+		}
+		fallthrough
+	case reflect.Int16:
+		if len == 0 {
+			len = 16
+		}
+		fallthrough
+	case reflect.Int32:
+		if len == 0 {
+			len = 32
+		}
+		fallthrough
 	case reflect.Int64:
+		if len == 0 {
+			len = 64
+		}
 		subf := Field{
 			Type: e,
 			Pkg:  f.Pkg,
 			Name: f.Name + "[" + f.IterLabel + "]",
 		}
-		err := emitCborUnmarshalInt64Field(w, subf)
+		err := emitCborUnmarshalIntField(w, subf, len)
 		if err != nil {
 			return err
 		}
@@ -1149,6 +1188,7 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 		return err
 	}
 
+	len := 0
 	for _, f := range gti.Fields {
 		fmt.Fprintf(w, "\t// t.%s (%s) (%s)\n", f.Name, f.Type, f.Type.Kind())
 		f.Name = "t." + f.Name
@@ -1162,24 +1202,47 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 			if err := emitCborUnmarshalStructField(w, f); err != nil {
 				return err
 			}
-		case reflect.Uint16:
-			fallthrough
-		case reflect.Uint32:
-			fallthrough
 		case reflect.Uint64:
 			if err := emitCborUnmarshalUint64Field(w, f); err != nil {
 				return err
 			}
 		case reflect.Uint8:
-			if err := emitCborUnmarshalUint8Field(w, f); err != nil {
+			if len == 0 {
+				len = 8
+			}
+			fallthrough
+		case reflect.Uint16:
+			if len == 0 {
+				len = 16
+			}
+			fallthrough
+		case reflect.Uint32:
+			if len == 0 {
+				len = 32
+			}
+			if err := emitCborUnmarshalUintField(w, f, len); err != nil {
 				return err
 			}
+		case reflect.Int8:
+			if len == 0 {
+				len = 8
+			}
+			fallthrough
 		case reflect.Int16:
+			if len == 0 {
+				len = 16
+			}
 			fallthrough
 		case reflect.Int32:
+			if len == 0 {
+				len = 32
+			}
 			fallthrough
 		case reflect.Int64:
-			if err := emitCborUnmarshalInt64Field(w, f); err != nil {
+			if len == 0 {
+				len = 64
+			}
+			if err := emitCborUnmarshalIntField(w, f, len); err != nil {
 				return err
 			}
 		case reflect.Array:
@@ -1275,24 +1338,26 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo, flattenEmbeddedStru
 			if err := emitCborMarshalStructField(w, f); err != nil {
 				return err
 			}
-		case reflect.Uint16:
-			fallthrough
-		case reflect.Uint32:
-			fallthrough
 		case reflect.Uint64:
 			if err := emitCborMarshalUint64Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int8:
+			fallthrough
 		case reflect.Int16:
 			fallthrough
 		case reflect.Int32:
 			fallthrough
 		case reflect.Int64:
-			if err := emitCborMarshalInt64Field(w, f); err != nil {
+			if err := emitCborMarshalIntField(w, f); err != nil {
 				return err
 			}
 		case reflect.Uint8:
-			if err := emitCborMarshalUint8Field(w, f); err != nil {
+			fallthrough
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			if err := emitCborMarshalUintField(w, f); err != nil {
 				return err
 			}
 		case reflect.Array:
@@ -1384,6 +1449,7 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 
 		f.Name = "t." + f.Name
 
+		len := 0
 		switch f.Type.Kind() {
 		case reflect.String:
 			if err := emitCborUnmarshalStringField(w, f); err != nil {
@@ -1393,24 +1459,47 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 			if err := emitCborUnmarshalStructField(w, f); err != nil {
 				return err
 			}
-		case reflect.Uint16:
-			fallthrough
-		case reflect.Uint32:
-			fallthrough
 		case reflect.Uint64:
 			if err := emitCborUnmarshalUint64Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int8:
+			if len == 0 {
+				len = 8
+			}
+			fallthrough
 		case reflect.Int16:
+			if len == 0 {
+				len = 16
+			}
 			fallthrough
 		case reflect.Int32:
+			if len == 0 {
+				len = 32
+			}
 			fallthrough
 		case reflect.Int64:
-			if err := emitCborUnmarshalInt64Field(w, f); err != nil {
+			if len == 0 {
+				len = 64
+			}
+			if err := emitCborUnmarshalIntField(w, f, len); err != nil {
 				return err
 			}
 		case reflect.Uint8:
-			if err := emitCborUnmarshalUint8Field(w, f); err != nil {
+			if len == 0 {
+				len = 8
+			}
+			fallthrough
+		case reflect.Uint16:
+			if len == 0 {
+				len = 16
+			}
+			fallthrough
+		case reflect.Uint32:
+			if len == 0 {
+				len = 32
+			}
+			if err := emitCborUnmarshalUintField(w, f, len); err != nil {
 				return err
 			}
 		case reflect.Array:

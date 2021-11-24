@@ -10,6 +10,8 @@ See `testgen/main.go`.
 
 ## New features of this fork
 
+### Adds support for types: `uint16`, `uint32`, `int8`, `int16`, `int32`
+
 ### Sort map keys according to RFC7049 & DAG-CBOR strict ordering
 
 This adds proper RFC7049 map key sorting, to both bare maps and structs in map representation.

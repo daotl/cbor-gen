@@ -34,11 +34,49 @@ func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{180}); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
+
+	// t.I8 (int8) (int8)
+	if len("I8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I8")); err != nil {
+		return err
+	}
+
+	if t.I8 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I8)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I8-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U8 (uint8) (uint8)
+	if len("U8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U8")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U8)); err != nil {
+		return err
+	}
 
 	// t.Dog (string) (string)
 	if len("Dog") > cbg.MaxLength {
@@ -482,7 +520,47 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Dog (string) (string)
+		// t.I8 (int8) (int8)
+		case "I8":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int8
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int8 field: %d", maj)
+				}
+
+				t.I8 = int8(extraI)
+			}
+			// t.U8 (uint8) (uint8)
+		case "U8":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint8 field")
+			}
+			if extra > math.MaxUint8 {
+				return fmt.Errorf("integer in input was too large for uint8 field")
+			}
+			t.U8 = uint8(extra)
+			// t.Dog (string) (string)
 		case "Dog":
 
 			{
@@ -508,24 +586,24 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 		case "I16":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int16
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int16 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int16 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int16 field: %d", maj)
 				}
 
 				t.I16 = int16(extraI)
@@ -534,24 +612,24 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 		case "I32":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int32
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int32 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int32 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int32 field: %d", maj)
 				}
 
 				t.I32 = int32(extraI)
@@ -559,33 +637,31 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 			// t.U16 (uint16) (uint16)
 		case "U16":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U16 = uint16(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint16 field")
+			}
+			if extra > math.MaxUint16 {
+				return fmt.Errorf("integer in input was too large for uint16 field")
+			}
+			t.U16 = uint16(extra)
 			// t.U32 (uint32) (uint32)
 		case "U32":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U32 = uint32(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint32 field")
+			}
+			if extra > math.MaxUint32 {
+				return fmt.Errorf("integer in input was too large for uint32 field")
+			}
+			t.U32 = uint32(extra)
 			// t.Test ([][]uint8) (slice)
 		case "Test":
 
@@ -949,11 +1025,49 @@ func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{180}); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
+
+	// t.I8 (int8) (int8)
+	if len("I8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I8")); err != nil {
+		return err
+	}
+
+	if t.I8 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I8)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I8-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U8 (uint8) (uint8)
+	if len("U8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U8")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U8)); err != nil {
+		return err
+	}
 
 	// t.Dog (string) (string)
 	if len("Dog") > cbg.MaxLength {
@@ -1397,7 +1511,47 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Dog (string) (string)
+		// t.I8 (int8) (int8)
+		case "I8":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int8
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int8 field: %d", maj)
+				}
+
+				t.I8 = int8(extraI)
+			}
+			// t.U8 (uint8) (uint8)
+		case "U8":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint8 field")
+			}
+			if extra > math.MaxUint8 {
+				return fmt.Errorf("integer in input was too large for uint8 field")
+			}
+			t.U8 = uint8(extra)
+			// t.Dog (string) (string)
 		case "Dog":
 
 			{
@@ -1423,24 +1577,24 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 		case "I16":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int16
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int16 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int16 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int16 field: %d", maj)
 				}
 
 				t.I16 = int16(extraI)
@@ -1449,24 +1603,24 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 		case "I32":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int32
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int32 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int32 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int32 field: %d", maj)
 				}
 
 				t.I32 = int32(extraI)
@@ -1474,33 +1628,31 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 			// t.U16 (uint16) (uint16)
 		case "U16":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U16 = uint16(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint16 field")
+			}
+			if extra > math.MaxUint16 {
+				return fmt.Errorf("integer in input was too large for uint16 field")
+			}
+			t.U16 = uint16(extra)
 			// t.U32 (uint32) (uint32)
 		case "U32":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U32 = uint32(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint32 field")
+			}
+			if extra > math.MaxUint32 {
+				return fmt.Errorf("integer in input was too large for uint32 field")
+			}
+			t.U32 = uint32(extra)
 			// t.Test ([][]uint8) (slice)
 		case "Test":
 
@@ -1864,11 +2016,49 @@ func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{178}); err != nil {
+	if _, err := w.Write([]byte{180}); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
+
+	// t.I8 (int8) (int8)
+	if len("I8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I8")); err != nil {
+		return err
+	}
+
+	if t.I8 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I8)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I8-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U8 (uint8) (uint8)
+	if len("U8") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U8\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U8"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U8")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U8)); err != nil {
+		return err
+	}
 
 	// t.Dog (string) (string)
 	if len("Dog") > cbg.MaxLength {
@@ -2312,7 +2502,47 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		switch name {
-		// t.Dog (string) (string)
+		// t.I8 (int8) (int8)
+		case "I8":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int8
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int8(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int8 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int8 field: %d", maj)
+				}
+
+				t.I8 = int8(extraI)
+			}
+			// t.U8 (uint8) (uint8)
+		case "U8":
+
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint8 field")
+			}
+			if extra > math.MaxUint8 {
+				return fmt.Errorf("integer in input was too large for uint8 field")
+			}
+			t.U8 = uint8(extra)
+			// t.Dog (string) (string)
 		case "Dog":
 
 			{
@@ -2338,24 +2568,24 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 		case "I16":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int16
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int16 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int16(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int16 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int16 field: %d", maj)
 				}
 
 				t.I16 = int16(extraI)
@@ -2364,24 +2594,24 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 		case "I32":
 			{
 				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
-				var extraI int64
+				var extraI int32
 				if err != nil {
 					return err
 				}
 				switch maj {
 				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return fmt.Errorf("int32 positive overflow")
 					}
 				case cbg.MajNegativeInt:
-					extraI = int64(extra)
+					extraI = int32(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int32 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return fmt.Errorf("wrong type for int32 field: %d", maj)
 				}
 
 				t.I32 = int32(extraI)
@@ -2389,33 +2619,31 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 			// t.U16 (uint16) (uint16)
 		case "U16":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U16 = uint16(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint16 field")
+			}
+			if extra > math.MaxUint16 {
+				return fmt.Errorf("integer in input was too large for uint16 field")
+			}
+			t.U16 = uint16(extra)
 			// t.U32 (uint32) (uint32)
 		case "U32":
 
-			{
-
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
-				if err != nil {
-					return err
-				}
-				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
-				}
-				t.U32 = uint32(extra)
-
+			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			if err != nil {
+				return err
 			}
+			if maj != cbg.MajUnsignedInt {
+				return fmt.Errorf("wrong type for uint32 field")
+			}
+			if extra > math.MaxUint32 {
+				return fmt.Errorf("integer in input was too large for uint32 field")
+			}
+			t.U32 = uint32(extra)
 			// t.Test ([][]uint8) (slice)
 		case "Test":
 
