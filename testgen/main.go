@@ -28,6 +28,7 @@ func main() {
 		types.NeedScratchForMap{},
 		types.SimpleStructV1{},
 		types.SimpleStructV2{},
+		types.RenamedFields{},
 	); err != nil {
 		panic(err)
 	}

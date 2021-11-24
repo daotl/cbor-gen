@@ -110,3 +110,8 @@ type ThingWithSomeTime struct {
 type NeedScratchForMap struct {
 	Thing bool
 }
+
+type RenamedFields struct {
+	Foo int64  `cborgen:"foo"`
+	Bar string `cborgen:"beep"`
+}

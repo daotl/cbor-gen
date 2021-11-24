@@ -94,6 +94,7 @@ func (t *{{ .Name }}) InitNilEmbeddedStruct() {
 
 type Field struct {
 	Name    string
+	MapKey  string
 	Pointer bool
 	Type    reflect.Type
 	Pkg     string
@@ -249,8 +250,16 @@ func parseTypeInfoRecur(pkg string, t reflect.Type, flattenEmbeddedStruct bool,
 					fields.Remove(e)
 				}
 			}
+
+			mapk := f.Name
+			tagval := f.Tag.Get("cborgen")
+			if tagval != "" {
+				mapk = tagval
+			}
+
 			f := Field{
 				Name:    f.Name,
+				MapKey:  mapk,
 				Pointer: pointer,
 				Type:    ft,
 				Pkg:     pkg,
@@ -1250,7 +1259,7 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo, flattenEmbeddedStru
 		fmt.Fprintf(w, "\n\t// t.%s (%s) (%s)", f.Name, f.Type, f.Type.Kind())
 
 		if err := emitCborMarshalStringField(w, Field{
-			Name: `"` + f.Name + `"`,
+			Name: `"` + f.MapKey + `"`,
 		}); err != nil {
 			return err
 		}
@@ -1367,7 +1376,7 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 		fmt.Fprintf(w, "// t.%s (%s) (%s)", f.Name, f.Type, f.Type.Kind())
 
 		err := doTemplate(w, f, `
-		case "{{ .Name }}":
+		case "{{ .MapKey }}":
 `)
 		if err != nil {
 			return err
