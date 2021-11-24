@@ -28,7 +28,7 @@ func (t *EmbeddingStructOne) InitNilEmbeddedStruct() {
 	}
 }
 
-var lengthBufEmbeddingStructOne = []byte{142}
+var lengthBufEmbeddingStructOne = []byte{146}
 
 func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -81,6 +81,40 @@ func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.NString)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -238,7 +272,7 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -311,6 +345,84 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.NString = testing.NamedString(sval)
+	}
+	// t.I16 (int16) (int16)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I16 = int16(extraI)
+	}
+	// t.I32 (int32) (int32)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I32 = int32(extraI)
+	}
+	// t.U16 (uint16) (uint16)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U16 = uint16(extra)
+
+	}
+	// t.U32 (uint32) (uint32)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U32 = uint32(extra)
+
 	}
 	// t.Test ([][]uint8) (slice)
 
@@ -601,7 +713,7 @@ func (t *EmbeddingStructTwo) InitNilEmbeddedStruct() {
 	}
 }
 
-var lengthBufEmbeddingStructTwo = []byte{142}
+var lengthBufEmbeddingStructTwo = []byte{146}
 
 func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -648,6 +760,40 @@ func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.NString)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -811,7 +957,7 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -870,6 +1016,84 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.NString = testing.NamedString(sval)
+	}
+	// t.I16 (int16) (int16)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I16 = int16(extraI)
+	}
+	// t.I32 (int32) (int32)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I32 = int32(extraI)
+	}
+	// t.U16 (uint16) (uint16)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U16 = uint16(extra)
+
+	}
+	// t.U32 (uint32) (uint32)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U32 = uint32(extra)
+
 	}
 	// t.Pizza (uint64) (uint64)
 
@@ -1174,7 +1398,7 @@ func (t *EmbeddingStructThree) InitNilEmbeddedStruct() {
 	}
 }
 
-var lengthBufEmbeddingStructThree = []byte{142}
+var lengthBufEmbeddingStructThree = []byte{146}
 
 func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -1208,6 +1432,40 @@ func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.NString)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -1384,7 +1642,7 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 14 {
+	if extra != 18 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -1422,6 +1680,84 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.NString = testing.NamedString(sval)
+	}
+	// t.I16 (int16) (int16)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I16 = int16(extraI)
+	}
+	// t.I32 (int32) (int32)
+	{
+		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		var extraI int64
+		if err != nil {
+			return err
+		}
+		switch maj {
+		case cbg.MajUnsignedInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 positive overflow")
+			}
+		case cbg.MajNegativeInt:
+			extraI = int64(extra)
+			if extraI < 0 {
+				return fmt.Errorf("int64 negative oveflow")
+			}
+			extraI = -1 - extraI
+		default:
+			return fmt.Errorf("wrong type for int64 field: %d", maj)
+		}
+
+		t.I32 = int32(extraI)
+	}
+	// t.U16 (uint16) (uint16)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U16 = uint16(extra)
+
+	}
+	// t.U32 (uint32) (uint32)
+
+	{
+
+		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		if err != nil {
+			return err
+		}
+		if maj != cbg.MajUnsignedInt {
+			return fmt.Errorf("wrong type for uint64 field")
+		}
+		t.U32 = uint32(extra)
+
 	}
 	// t.Foo (string) (string)
 

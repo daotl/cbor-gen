@@ -21,6 +21,10 @@ type SimpleTypeOne struct {
 	Binary  []byte
 	Signed  int64
 	NString NamedString
+	I16     int16
+	I32     int32
+	U16     uint16
+	U32     uint32
 }
 
 func (t *SimpleTypeOne) InitNilEmbeddedStruct() {}

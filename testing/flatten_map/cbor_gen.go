@@ -34,7 +34,7 @@ func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{174}); err != nil {
+	if _, err := w.Write([]byte{178}); err != nil {
 		return err
 	}
 
@@ -83,6 +83,82 @@ func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Foo)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if len("I16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I16")); err != nil {
+		return err
+	}
+
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if len("I32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I32")); err != nil {
+		return err
+	}
+
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+	if len("U16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U16")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+	if len("U32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U32")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -427,6 +503,88 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 				}
 
 				t.Foo = string(sval)
+			}
+			// t.I16 (int16) (int16)
+		case "I16":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I16 = int16(extraI)
+			}
+			// t.I32 (int32) (int32)
+		case "I32":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I32 = int32(extraI)
+			}
+			// t.U16 (uint16) (uint16)
+		case "U16":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U16 = uint16(extra)
+
+			}
+			// t.U32 (uint32) (uint32)
+		case "U32":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U32 = uint32(extra)
+
 			}
 			// t.Test ([][]uint8) (slice)
 		case "Test":
@@ -791,7 +949,7 @@ func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{174}); err != nil {
+	if _, err := w.Write([]byte{178}); err != nil {
 		return err
 	}
 
@@ -840,6 +998,82 @@ func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Foo)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if len("I16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I16")); err != nil {
+		return err
+	}
+
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if len("I32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I32")); err != nil {
+		return err
+	}
+
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+	if len("U16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U16")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+	if len("U32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U32")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -1184,6 +1418,88 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 				}
 
 				t.Foo = string(sval)
+			}
+			// t.I16 (int16) (int16)
+		case "I16":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I16 = int16(extraI)
+			}
+			// t.I32 (int32) (int32)
+		case "I32":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I32 = int32(extraI)
+			}
+			// t.U16 (uint16) (uint16)
+		case "U16":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U16 = uint16(extra)
+
+			}
+			// t.U32 (uint32) (uint32)
+		case "U32":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U32 = uint32(extra)
+
 			}
 			// t.Test ([][]uint8) (slice)
 		case "Test":
@@ -1548,7 +1864,7 @@ func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.InitNilEmbeddedStruct()
-	if _, err := w.Write([]byte{174}); err != nil {
+	if _, err := w.Write([]byte{178}); err != nil {
 		return err
 	}
 
@@ -1597,6 +1913,82 @@ func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Foo)); err != nil {
+		return err
+	}
+
+	// t.I16 (int16) (int16)
+	if len("I16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I16")); err != nil {
+		return err
+	}
+
+	if t.I16 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I16)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I16-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.I32 (int32) (int32)
+	if len("I32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"I32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("I32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("I32")); err != nil {
+		return err
+	}
+
+	if t.I32 >= 0 {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.I32)); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajNegativeInt, uint64(-t.I32-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.U16 (uint16) (uint16)
+	if len("U16") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U16\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U16"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U16")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U16)); err != nil {
+		return err
+	}
+
+	// t.U32 (uint32) (uint32)
+	if len("U32") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"U32\" was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajTextString, uint64(len("U32"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("U32")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.U32)); err != nil {
 		return err
 	}
 
@@ -1941,6 +2333,88 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 				}
 
 				t.Foo = string(sval)
+			}
+			// t.I16 (int16) (int16)
+		case "I16":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I16 = int16(extraI)
+			}
+			// t.I32 (int32) (int32)
+		case "I32":
+			{
+				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.I32 = int32(extraI)
+			}
+			// t.U16 (uint16) (uint16)
+		case "U16":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U16 = uint16(extra)
+
+			}
+			// t.U32 (uint32) (uint32)
+		case "U32":
+
+			{
+
+				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				if err != nil {
+					return err
+				}
+				if maj != cbg.MajUnsignedInt {
+					return fmt.Errorf("wrong type for uint64 field")
+				}
+				t.U32 = uint32(extra)
+
 			}
 			// t.Test ([][]uint8) (slice)
 		case "Test":

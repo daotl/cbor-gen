@@ -345,6 +345,10 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 		Binary:  []byte("bin"),
 		Signed:  -1,
 		NString: "namedstr",
+		I16:     -2,
+		I32:     -3,
+		U16:     2,
+		U32:     3,
 	}
 	obj := &types.SimpleStructV1{
 		OldStr:    "hello",
@@ -428,6 +432,10 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 		Binary:  []byte("bin"),
 		Signed:  -1,
 		NString: "namedstr",
+		I16:     -2,
+		I32:     -3,
+		U16:     2,
+		U32:     3,
 	}
 	simpleType2 := types.SimpleTypeOne{
 		Foo:     "bar",
@@ -435,6 +443,10 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 		Binary:  []byte("bin2"),
 		Signed:  -2,
 		NString: "namedstr2",
+		I16:     -2,
+		I32:     -3,
+		U16:     2,
+		U32:     3,
 	}
 	obj := &types.SimpleStructV2{
 		OldStr:    "oldstr",

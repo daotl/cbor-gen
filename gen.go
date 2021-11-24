@@ -604,6 +604,10 @@ func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 			if err := emitCborMarshalStructField(w, f); err != nil {
 				return err
 			}
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
 		case reflect.Uint64:
 			if err := emitCborMarshalUint64Field(w, f); err != nil {
 				return err
@@ -612,6 +616,10 @@ func (t *{{ .Name }}) MarshalCBOR(w io.Writer) error {
 			if err := emitCborMarshalUint8Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
 		case reflect.Int64:
 			if err := emitCborMarshalInt64Field(w, f); err != nil {
 				return err
@@ -1145,6 +1153,10 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 			if err := emitCborUnmarshalStructField(w, f); err != nil {
 				return err
 			}
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
 		case reflect.Uint64:
 			if err := emitCborUnmarshalUint64Field(w, f); err != nil {
 				return err
@@ -1153,6 +1165,10 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 			if err := emitCborUnmarshalUint8Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
 		case reflect.Int64:
 			if err := emitCborUnmarshalInt64Field(w, f); err != nil {
 				return err
@@ -1250,10 +1266,18 @@ func emitCborMarshalStructMap(w io.Writer, gti *GenTypeInfo, flattenEmbeddedStru
 			if err := emitCborMarshalStructField(w, f); err != nil {
 				return err
 			}
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
 		case reflect.Uint64:
 			if err := emitCborMarshalUint64Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
 		case reflect.Int64:
 			if err := emitCborMarshalInt64Field(w, f); err != nil {
 				return err
@@ -1360,10 +1384,18 @@ func (t *{{ .Name}}) UnmarshalCBOR(r io.Reader) error {
 			if err := emitCborUnmarshalStructField(w, f); err != nil {
 				return err
 			}
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
 		case reflect.Uint64:
 			if err := emitCborUnmarshalUint64Field(w, f); err != nil {
 				return err
 			}
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
 		case reflect.Int64:
 			if err := emitCborUnmarshalInt64Field(w, f); err != nil {
 				return err
