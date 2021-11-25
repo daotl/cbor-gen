@@ -553,8 +553,11 @@ func emitCborMarshalSliceField(w io.Writer, f Field) error {
 			return err
 		}
 	case reflect.Int8:
+		fallthrough
 	case reflect.Int16:
+		fallthrough
 	case reflect.Int32:
+		fallthrough
 	case reflect.Int64:
 		subf := Field{Name: "v", Type: e, Pkg: f.Pkg}
 		if err := emitCborMarshalIntField(w, subf); err != nil {
