@@ -56,7 +56,7 @@ func BenchmarkUnmarshaling(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		reader.Seek(0, io.SeekStart)
 		var tt types.SimpleTypeTwo
-		if err := tt.UnmarshalCBOR(reader); err != nil {
+		if _, err := tt.UnmarshalCBOR(reader); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -84,7 +84,7 @@ func BenchmarkLinkScan(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		reader.Seek(0, io.SeekStart)
-		if err := cbg.ScanForLinks(reader, func(cid.Cid) {}); err != nil {
+		if _, err := cbg.ScanForLinks(reader, func(cid.Cid) {}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -114,7 +114,7 @@ func BenchmarkDeferred(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		reader.Seek(0, io.SeekStart)
-		if err := deferred.UnmarshalCBOR(reader); err != nil {
+		if _, err := deferred.UnmarshalCBOR(reader); err != nil {
 			b.Fatal(err)
 		}
 	}

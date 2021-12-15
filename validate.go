@@ -17,7 +17,7 @@ func ValidateCBOR(b []byte) error {
 	scratch := make([]byte, maxHeaderSize)
 
 	for remaining := uint64(1); remaining > 0; remaining-- {
-		maj, extra, err := CborReadHeaderBuf(br, scratch)
+		maj, extra, _, err := CborReadHeaderBuf(br, scratch)
 		if err != nil {
 			return err
 		}

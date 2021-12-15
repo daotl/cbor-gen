@@ -188,22 +188,24 @@ func (t *SimpleTypeTree) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
+func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = SimpleTypeTree{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return bytesRead, fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("SimpleTypeTree: map struct too large (%d)", extra)
+		return bytesRead, fmt.Errorf("SimpleTypeTree: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -212,10 +214,11 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, read, err := cbg.ReadStringBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			name = string(sval)
 		}
@@ -225,27 +228,29 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 		case "Dog":
 
 			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
+				sval, read, err := cbg.ReadStringBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				t.Dog = string(sval)
 			}
 			// t.Test ([][]uint8) (slice)
 		case "Test":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.Test: array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.Test: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
+				return bytesRead, fmt.Errorf("expected cbor array")
 			}
 
 			if extra > 0 {
@@ -258,24 +263,27 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 					var extra uint64
 					var err error
 
-					maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+					maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 					if err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead += read
 
 					if extra > cbg.ByteArrayMaxLen {
-						return fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
+						return bytesRead, fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
 					}
 					if maj != cbg.MajByteString {
-						return fmt.Errorf("expected byte array")
+						return bytesRead, fmt.Errorf("expected byte array")
 					}
 
 					if extra > 0 {
 						t.Test[i] = make([]uint8, extra)
 					}
 
-					if _, err := io.ReadFull(br, t.Test[i][:]); err != nil {
-						return err
+					if read, err := io.ReadFull(br, t.Test[i][:]); err != nil {
+						return bytesRead, err
+					} else {
+						bytesRead += read
 					}
 				}
 			}
@@ -287,15 +295,19 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead--
 					t.Stuff = new(SimpleTypeTree)
-					if err := t.Stuff.UnmarshalCBOR(br); err != nil {
-						return xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+					if read, err := t.Stuff.UnmarshalCBOR(br); err != nil {
+						return bytesRead, xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+					} else {
+						bytesRead += read
 					}
 				}
 
@@ -303,17 +315,18 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 			// t.Others ([]uint64) (slice)
 		case "Others":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.Others: array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.Others: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
+				return bytesRead, fmt.Errorf("expected cbor array")
 			}
 
 			if extra > 0 {
@@ -322,13 +335,14 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 			for i := 0; i < int(extra); i++ {
 
-				maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+				maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 				if err != nil {
-					return xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
+					return bytesRead, xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
 				}
+				bytesRead += read
 
 				if maj != cbg.MajUnsignedInt {
-					return xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
+					return bytesRead, xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
 				}
 
 				t.Others[i] = uint64(val)
@@ -341,15 +355,19 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead--
 					t.Stufff = new(SimpleTypeTwo)
-					if err := t.Stufff.UnmarshalCBOR(br); err != nil {
-						return xerrors.Errorf("unmarshaling t.Stufff pointer: %w", err)
+					if read, err := t.Stufff.UnmarshalCBOR(br); err != nil {
+						return bytesRead, xerrors.Errorf("unmarshaling t.Stufff pointer: %w", err)
+					} else {
+						bytesRead += read
 					}
 				}
 
@@ -361,18 +379,21 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
-					maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+					bytesRead--
+					maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 					if err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead += read
 					if maj != cbg.MajUnsignedInt {
-						return fmt.Errorf("wrong type for uint64 field")
+						return bytesRead, fmt.Errorf("wrong type for uint64 field")
 					}
 					typed := uint64(extra)
 					t.NotPizza = &typed
@@ -382,25 +403,26 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 			// t.SixtyThreeBitIntegerWithASignBit (int64) (int64)
 		case "SixtyThreeBitIntegerWithASignBit":
 			{
-				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 				var extraI int64
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return bytesRead, fmt.Errorf("int64 positive overflow")
 					}
 				case cbg.MajNegativeInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return bytesRead, fmt.Errorf("int64 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
 
 				t.SixtyThreeBitIntegerWithASignBit = int64(extraI)
@@ -408,11 +430,13 @@ func (t *SimpleTypeTree) UnmarshalCBOR(r io.Reader) error {
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if read, err := cbg.ScanForLinks(r, func(cid.Cid) {}); err == nil {
+				bytesRead += read
+			}
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }
 func (t *NeedScratchForMap) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -443,22 +467,24 @@ func (t *NeedScratchForMap) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *NeedScratchForMap) UnmarshalCBOR(r io.Reader) error {
+func (t *NeedScratchForMap) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = NeedScratchForMap{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return bytesRead, fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("NeedScratchForMap: map struct too large (%d)", extra)
+		return bytesRead, fmt.Errorf("NeedScratchForMap: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -467,10 +493,11 @@ func (t *NeedScratchForMap) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, read, err := cbg.ReadStringBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			name = string(sval)
 		}
@@ -479,12 +506,13 @@ func (t *NeedScratchForMap) UnmarshalCBOR(r io.Reader) error {
 		// t.Thing (bool) (bool)
 		case "Thing":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajOther {
-				return fmt.Errorf("booleans must be major type 7")
+				return bytesRead, fmt.Errorf("booleans must be major type 7")
 			}
 			switch extra {
 			case 20:
@@ -492,16 +520,18 @@ func (t *NeedScratchForMap) UnmarshalCBOR(r io.Reader) error {
 			case 21:
 				t.Thing = true
 			default:
-				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+				return bytesRead, fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if read, err := cbg.ScanForLinks(r, func(cid.Cid) {}); err == nil {
+				bytesRead += read
+			}
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }
 func (t *SimpleStructV1) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -689,22 +719,24 @@ func (t *SimpleStructV1) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
+func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = SimpleStructV1{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return bytesRead, fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("SimpleStructV1: map struct too large (%d)", extra)
+		return bytesRead, fmt.Errorf("SimpleStructV1: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -713,10 +745,11 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, read, err := cbg.ReadStringBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			name = string(sval)
 		}
@@ -725,15 +758,16 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 		// t.OldMap (map[string]testing.SimpleTypeOne) (map)
 		case "OldMap":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajMap {
-				return fmt.Errorf("expected a map (major type 5)")
+				return bytesRead, fmt.Errorf("expected a map (major type 5)")
 			}
 			if extra > 4096 {
-				return fmt.Errorf("t.OldMap: map too large")
+				return bytesRead, fmt.Errorf("t.OldMap: map too large")
 			}
 
 			t.OldMap = make(map[string]SimpleTypeOne, extra)
@@ -743,10 +777,11 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 				var k string
 
 				{
-					sval, err := cbg.ReadStringBuf(br, scratch)
+					sval, read, err := cbg.ReadStringBuf(br, scratch)
 					if err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead += read
 
 					k = string(sval)
 				}
@@ -755,8 +790,10 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 
 				{
 
-					if err := v.UnmarshalCBOR(br); err != nil {
-						return xerrors.Errorf("unmarshaling v: %w", err)
+					if read, err := v.UnmarshalCBOR(br); err != nil {
+						return bytesRead, xerrors.Errorf("unmarshaling v: %w", err)
+					} else {
+						bytesRead += read
 					}
 
 				}
@@ -769,12 +806,13 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
+					return bytesRead, fmt.Errorf("wrong type for uint64 field")
 				}
 				t.OldNum = uint64(extra)
 
@@ -786,17 +824,20 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead--
 
-					c, err := cbg.ReadCid(br)
+					c, read, err := cbg.ReadCid(br)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.OldPtr: %w", err)
+						return bytesRead, xerrors.Errorf("failed to read cid field t.OldPtr: %w", err)
 					}
+					bytesRead += read
 
 					t.OldPtr = &c
 				}
@@ -806,27 +847,29 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 		case "OldStr":
 
 			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
+				sval, read, err := cbg.ReadStringBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				t.OldStr = string(sval)
 			}
 			// t.OldArray ([]testing.SimpleTypeOne) (slice)
 		case "OldArray":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.OldArray: array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.OldArray: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
+				return bytesRead, fmt.Errorf("expected cbor array")
 			}
 
 			if extra > 0 {
@@ -836,8 +879,10 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 			for i := 0; i < int(extra); i++ {
 
 				var v SimpleTypeOne
-				if err := v.UnmarshalCBOR(br); err != nil {
-					return err
+				if read, err := v.UnmarshalCBOR(br); err != nil {
+					return bytesRead, err
+				} else {
+					bytesRead += read
 				}
 
 				t.OldArray[i] = v
@@ -846,43 +891,50 @@ func (t *SimpleStructV1) UnmarshalCBOR(r io.Reader) error {
 			// t.OldBytes ([]uint8) (slice)
 		case "OldBytes":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.OldBytes: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.OldBytes: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.OldBytes = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.OldBytes[:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.OldBytes[:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 			// t.OldStruct (testing.SimpleTypeOne) (struct)
 		case "OldStruct":
 
 			{
 
-				if err := t.OldStruct.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.OldStruct: %w", err)
+				if read, err := t.OldStruct.UnmarshalCBOR(br); err != nil {
+					return bytesRead, xerrors.Errorf("unmarshaling t.OldStruct: %w", err)
+				} else {
+					bytesRead += read
 				}
 
 			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if read, err := cbg.ScanForLinks(r, func(cid.Cid) {}); err == nil {
+				bytesRead += read
+			}
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }
 func (t *SimpleStructV2) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -1243,22 +1295,24 @@ func (t *SimpleStructV2) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
+func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = SimpleStructV2{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return bytesRead, fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("SimpleStructV2: map struct too large (%d)", extra)
+		return bytesRead, fmt.Errorf("SimpleStructV2: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -1267,10 +1321,11 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, read, err := cbg.ReadStringBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			name = string(sval)
 		}
@@ -1279,15 +1334,16 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 		// t.NewMap (map[string]testing.SimpleTypeOne) (map)
 		case "NewMap":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajMap {
-				return fmt.Errorf("expected a map (major type 5)")
+				return bytesRead, fmt.Errorf("expected a map (major type 5)")
 			}
 			if extra > 4096 {
-				return fmt.Errorf("t.NewMap: map too large")
+				return bytesRead, fmt.Errorf("t.NewMap: map too large")
 			}
 
 			t.NewMap = make(map[string]SimpleTypeOne, extra)
@@ -1297,10 +1353,11 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 				var k string
 
 				{
-					sval, err := cbg.ReadStringBuf(br, scratch)
+					sval, read, err := cbg.ReadStringBuf(br, scratch)
 					if err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead += read
 
 					k = string(sval)
 				}
@@ -1309,8 +1366,10 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 				{
 
-					if err := v.UnmarshalCBOR(br); err != nil {
-						return xerrors.Errorf("unmarshaling v: %w", err)
+					if read, err := v.UnmarshalCBOR(br); err != nil {
+						return bytesRead, xerrors.Errorf("unmarshaling v: %w", err)
+					} else {
+						bytesRead += read
 					}
 
 				}
@@ -1323,12 +1382,13 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
+					return bytesRead, fmt.Errorf("wrong type for uint64 field")
 				}
 				t.NewNum = uint64(extra)
 
@@ -1340,17 +1400,20 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead--
 
-					c, err := cbg.ReadCid(br)
+					c, read, err := cbg.ReadCid(br)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.NewPtr: %w", err)
+						return bytesRead, xerrors.Errorf("failed to read cid field t.NewPtr: %w", err)
 					}
+					bytesRead += read
 
 					t.NewPtr = &c
 				}
@@ -1360,25 +1423,27 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 		case "NewStr":
 
 			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
+				sval, read, err := cbg.ReadStringBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				t.NewStr = string(sval)
 			}
 			// t.OldMap (map[string]testing.SimpleTypeOne) (map)
 		case "OldMap":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajMap {
-				return fmt.Errorf("expected a map (major type 5)")
+				return bytesRead, fmt.Errorf("expected a map (major type 5)")
 			}
 			if extra > 4096 {
-				return fmt.Errorf("t.OldMap: map too large")
+				return bytesRead, fmt.Errorf("t.OldMap: map too large")
 			}
 
 			t.OldMap = make(map[string]SimpleTypeOne, extra)
@@ -1388,10 +1453,11 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 				var k string
 
 				{
-					sval, err := cbg.ReadStringBuf(br, scratch)
+					sval, read, err := cbg.ReadStringBuf(br, scratch)
 					if err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead += read
 
 					k = string(sval)
 				}
@@ -1400,8 +1466,10 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 				{
 
-					if err := v.UnmarshalCBOR(br); err != nil {
-						return xerrors.Errorf("unmarshaling v: %w", err)
+					if read, err := v.UnmarshalCBOR(br); err != nil {
+						return bytesRead, xerrors.Errorf("unmarshaling v: %w", err)
+					} else {
+						bytesRead += read
 					}
 
 				}
@@ -1414,12 +1482,13 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 				if maj != cbg.MajUnsignedInt {
-					return fmt.Errorf("wrong type for uint64 field")
+					return bytesRead, fmt.Errorf("wrong type for uint64 field")
 				}
 				t.OldNum = uint64(extra)
 
@@ -1431,17 +1500,20 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 				b, err := br.ReadByte()
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead++
 				if b != cbg.CborNull[0] {
 					if err := br.UnreadByte(); err != nil {
-						return err
+						return bytesRead, err
 					}
+					bytesRead--
 
-					c, err := cbg.ReadCid(br)
+					c, read, err := cbg.ReadCid(br)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.OldPtr: %w", err)
+						return bytesRead, xerrors.Errorf("failed to read cid field t.OldPtr: %w", err)
 					}
+					bytesRead += read
 
 					t.OldPtr = &c
 				}
@@ -1451,27 +1523,29 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 		case "OldStr":
 
 			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
+				sval, read, err := cbg.ReadStringBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				t.OldStr = string(sval)
 			}
 			// t.NewArray ([]testing.SimpleTypeOne) (slice)
 		case "NewArray":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.NewArray: array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.NewArray: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
+				return bytesRead, fmt.Errorf("expected cbor array")
 			}
 
 			if extra > 0 {
@@ -1481,8 +1555,10 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 			for i := 0; i < int(extra); i++ {
 
 				var v SimpleTypeOne
-				if err := v.UnmarshalCBOR(br); err != nil {
-					return err
+				if read, err := v.UnmarshalCBOR(br); err != nil {
+					return bytesRead, err
+				} else {
+					bytesRead += read
 				}
 
 				t.NewArray[i] = v
@@ -1491,39 +1567,43 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 			// t.NewBytes ([]uint8) (slice)
 		case "NewBytes":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.NewBytes: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.NewBytes: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.NewBytes = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.NewBytes[:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.NewBytes[:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 			// t.OldArray ([]testing.SimpleTypeOne) (slice)
 		case "OldArray":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.OldArray: array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.OldArray: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
+				return bytesRead, fmt.Errorf("expected cbor array")
 			}
 
 			if extra > 0 {
@@ -1533,8 +1613,10 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 			for i := 0; i < int(extra); i++ {
 
 				var v SimpleTypeOne
-				if err := v.UnmarshalCBOR(br); err != nil {
-					return err
+				if read, err := v.UnmarshalCBOR(br); err != nil {
+					return bytesRead, err
+				} else {
+					bytesRead += read
 				}
 
 				t.OldArray[i] = v
@@ -1543,32 +1625,37 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 			// t.OldBytes ([]uint8) (slice)
 		case "OldBytes":
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.OldBytes: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.OldBytes: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.OldBytes = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.OldBytes[:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.OldBytes[:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 			// t.NewStruct (testing.SimpleTypeOne) (struct)
 		case "NewStruct":
 
 			{
 
-				if err := t.NewStruct.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.NewStruct: %w", err)
+				if read, err := t.NewStruct.UnmarshalCBOR(br); err != nil {
+					return bytesRead, xerrors.Errorf("unmarshaling t.NewStruct: %w", err)
+				} else {
+					bytesRead += read
 				}
 
 			}
@@ -1577,19 +1664,23 @@ func (t *SimpleStructV2) UnmarshalCBOR(r io.Reader) error {
 
 			{
 
-				if err := t.OldStruct.UnmarshalCBOR(br); err != nil {
-					return xerrors.Errorf("unmarshaling t.OldStruct: %w", err)
+				if read, err := t.OldStruct.UnmarshalCBOR(br); err != nil {
+					return bytesRead, xerrors.Errorf("unmarshaling t.OldStruct: %w", err)
+				} else {
+					bytesRead += read
 				}
 
 			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if read, err := cbg.ScanForLinks(r, func(cid.Cid) {}); err == nil {
+				bytesRead += read
+			}
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }
 func (t *RenamedFields) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -1649,22 +1740,24 @@ func (t *RenamedFields) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *RenamedFields) UnmarshalCBOR(r io.Reader) error {
+func (t *RenamedFields) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = RenamedFields{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return bytesRead, fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("RenamedFields: map struct too large (%d)", extra)
+		return bytesRead, fmt.Errorf("RenamedFields: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -1673,10 +1766,11 @@ func (t *RenamedFields) UnmarshalCBOR(r io.Reader) error {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadStringBuf(br, scratch)
+			sval, read, err := cbg.ReadStringBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			name = string(sval)
 		}
@@ -1686,35 +1780,37 @@ func (t *RenamedFields) UnmarshalCBOR(r io.Reader) error {
 		case "beep":
 
 			{
-				sval, err := cbg.ReadStringBuf(br, scratch)
+				sval, read, err := cbg.ReadStringBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				t.Bar = string(sval)
 			}
 			// t.Foo (int64) (int64)
 		case "foo":
 			{
-				maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 				var extraI int64
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+						return bytesRead, fmt.Errorf("int64 positive overflow")
 					}
 				case cbg.MajNegativeInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return bytesRead, fmt.Errorf("int64 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+					return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
 
 				t.Foo = int64(extraI)
@@ -1722,9 +1818,11 @@ func (t *RenamedFields) UnmarshalCBOR(r io.Reader) error {
 
 		default:
 			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
+			if read, err := cbg.ScanForLinks(r, func(cid.Cid) {}); err == nil {
+				bytesRead += read
+			}
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }

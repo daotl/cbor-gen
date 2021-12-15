@@ -92,9 +92,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		flatenc := buf.Bytes()
 
 		sv := &flatten_tuple.EmbedByValueStruct{}
-		if err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := sv.MarshalCBOR(buf); err != nil {
@@ -107,9 +109,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		}
 
 		sp := &flatten_tuple.EmbedByPointerStruct{}
-		if err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := sp.MarshalCBOR(buf); err != nil {
@@ -122,9 +126,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		}
 
 		sr := &flatten_tuple.ReorderedFlatStruct{}
-		if err := sr.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := sr.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := sr.MarshalCBOR(buf); err != nil {
@@ -137,9 +143,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		}
 
 		srv := &flatten_tuple.ReorderedEmbedByValueStruct{}
-		if err := srv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := srv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := srv.MarshalCBOR(buf); err != nil {
@@ -152,9 +160,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		}
 
 		srp := &flatten_tuple.ReorderedEmbedByValueStruct{}
-		if err := srp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := srp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := srp.MarshalCBOR(buf); err != nil {
@@ -182,9 +192,11 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		flatenc := buf.Bytes()
 
 		sv := &flatten_map.EmbedByValueStruct{}
-		if err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := sv.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := sv.MarshalCBOR(buf); err != nil {
@@ -197,10 +209,12 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 		}
 
 		sp := &flatten_map.EmbedByPointerStruct{}
-		if err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
+		if read, err := sp.UnmarshalCBOR(bytes.NewReader(flatenc)); err != nil {
 			t.Logf("got bad bytes: %x", flatenc)
 			t.Fatal("failed to unmarshal object: ", err)
 			t.Fatal("failed to sunmarshal object: ", err)
+		} else if read != len(flatenc) {
+			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
 		if err := sp.MarshalCBOR(buf); err != nil {
@@ -224,9 +238,11 @@ func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmars
 
 	enc := buf.Bytes()
 
-	if err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
+	if read, err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
 		t.Logf("got bad bytes: %x", enc)
 		t.Fatal("failed to round trip object: ", err)
+	} else if read != len(enc) {
+		t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(enc), read)
 	}
 
 	if !onlyCompareBytes {
@@ -275,10 +291,13 @@ func TestNilValueDeferredUnmarshaling(t *testing.T) {
 	if err := zero.MarshalCBOR(buf); err != nil {
 		t.Fatal(err)
 	}
+	enc := buf.Bytes()
 
 	var n types.DeferredContainer
-	if err := n.UnmarshalCBOR(buf); err != nil {
+	if read, err := n.UnmarshalCBOR(buf); err != nil {
 		t.Fatal(err)
+	} else if read != len(enc) {
+		t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(enc), read)
 	}
 
 	if n.Deferred == nil {
@@ -303,10 +322,13 @@ func TestTimeIsh(t *testing.T) {
 	if err := val.MarshalCBOR(buf); err != nil {
 		t.Fatal(err)
 	}
+	enc := buf.Bytes()
 
 	out := types.ThingWithSomeTime{}
-	if err := out.UnmarshalCBOR(buf); err != nil {
+	if read, err := out.UnmarshalCBOR(buf); err != nil {
 		t.Fatal(err)
+	} else if read != len(enc) {
+		t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(enc), read)
 	}
 
 	if out.When.Time().UnixNano() != val.When.Time().UnixNano() {
@@ -370,9 +392,11 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 	enc := buf.Bytes()
 
 	nobj := types.SimpleStructV2{}
-	if err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
+	if read, err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
 		t.Logf("got bad bytes: %x", enc)
 		t.Fatal("failed to round trip object: ", err)
+	} else if read != len(enc) {
+		t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(enc), read)
 	}
 
 	if obj.OldStr != nobj.OldStr {
@@ -479,9 +503,11 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 	enc := buf.Bytes()
 
 	nobj := types.SimpleStructV1{}
-	if err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
+	if read, err := nobj.UnmarshalCBOR(bytes.NewReader(enc)); err != nil {
 		t.Logf("got bad bytes: %x", enc)
 		t.Fatal("failed to round trip object: ", err)
+	} else if read != len(enc) {
+		t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(enc), read)
 	}
 
 	if obj.OldStr != nobj.OldStr {

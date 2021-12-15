@@ -12,7 +12,7 @@ import (
 	"sort"
 	"time"
 
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 )
 
 const maxCidLength = 100
@@ -45,43 +45,50 @@ func discard(br io.Reader, n int) error {
 	}
 }
 
-func ScanForLinks(br io.Reader, cb func(cid.Cid)) error {
+func ScanForLinks(br io.Reader, cb func(cid.Cid)) (int, error) {
+	bytesRead := 0
+
 	scratch := make([]byte, maxCidLength)
 	for remaining := uint64(1); remaining > 0; remaining-- {
-		maj, extra, err := CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		switch maj {
 		case MajUnsignedInt, MajNegativeInt, MajOther:
 		case MajByteString, MajTextString:
 			err := discard(br, int(extra))
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += int(extra)
 		case MajTag:
 			if extra == 42 {
-				maj, extra, err = CborReadHeaderBuf(br, scratch)
+				maj, extra, read, err = CborReadHeaderBuf(br, scratch)
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
+				bytesRead += read
 
 				if maj != MajByteString {
-					return fmt.Errorf("expected cbor type 'byte string' in input")
+					return bytesRead, fmt.Errorf("expected cbor type 'byte string' in input")
 				}
 
 				if extra > maxCidLength {
-					return fmt.Errorf("string in cbor input too long")
+					return bytesRead, fmt.Errorf("string in cbor input too long")
 				}
 
-				if _, err := io.ReadAtLeast(br, scratch[:extra], int(extra)); err != nil {
-					return err
+				if read, err := io.ReadAtLeast(br, scratch[:extra], int(extra)); err != nil {
+					return bytesRead, err
+				} else {
+					bytesRead += read
 				}
 
 				c, err := cid.Cast(scratch[1:extra])
 				if err != nil {
-					return err
+					return bytesRead, err
 				}
 				cb(c)
 
@@ -93,10 +100,10 @@ func ScanForLinks(br io.Reader, cb func(cid.Cid)) error {
 		case MajMap:
 			remaining += (extra * 2)
 		default:
-			return fmt.Errorf("unhandled cbor type: %d", maj)
+			return bytesRead, fmt.Errorf("unhandled cbor type: %d", maj)
 		}
 	}
-	return nil
+	return bytesRead, nil
 }
 
 const (
@@ -119,7 +126,7 @@ type Initter interface {
 }
 
 type CBORUnmarshaler interface {
-	UnmarshalCBOR(io.Reader) error
+	UnmarshalCBOR(io.Reader) (int, error)
 }
 
 type CBORMarshaler interface {
@@ -142,7 +149,9 @@ func (d *Deferred) MarshalCBOR(w io.Writer) error {
 	return err
 }
 
-func (d *Deferred) UnmarshalCBOR(br io.Reader) error {
+func (d *Deferred) UnmarshalCBOR(br io.Reader) (int, error) {
+	bytesRead := 0
+
 	// Reuse any existing buffers.
 	reusedBuf := d.Raw[:0]
 	d.Raw = nil
@@ -162,12 +171,14 @@ func (d *Deferred) UnmarshalCBOR(br io.Reader) error {
 	// define this once so we don't keep allocating it.
 	limitedReader := io.LimitedReader{R: br}
 	for remaining := uint64(1); remaining > 0; remaining-- {
-		maj, extra, err := CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
+
 		if err := WriteMajorTypeHeaderBuf(scratch, buf, maj, extra); err != nil {
-			return err
+			return bytesRead, err
 		}
 
 		switch maj {
@@ -175,34 +186,37 @@ func (d *Deferred) UnmarshalCBOR(br io.Reader) error {
 			// nothing fancy to do
 		case MajByteString, MajTextString:
 			if extra > ByteArrayMaxLen {
-				return maxLengthError
+				return bytesRead, maxLengthError
 			}
 			// Copy the bytes
 			limitedReader.N = int64(extra)
 			buf.Grow(int(extra))
 			if n, err := buf.ReadFrom(&limitedReader); err != nil {
-				return err
-			} else if n < int64(extra) {
-				return io.ErrUnexpectedEOF
+				return bytesRead, err
+			} else {
+				bytesRead += int(n)
+				if n < int64(extra) {
+					return bytesRead, io.ErrUnexpectedEOF
+				}
 			}
 		case MajTag:
 			remaining++
 		case MajArray:
 			if extra > MaxLength {
-				return maxLengthError
+				return bytesRead, maxLengthError
 			}
 			remaining += extra
 		case MajMap:
 			if extra > MaxLength {
-				return maxLengthError
+				return bytesRead, maxLengthError
 			}
 			remaining += extra * 2
 		default:
-			return fmt.Errorf("unhandled deferred cbor type: %d", maj)
+			return bytesRead, fmt.Errorf("unhandled deferred cbor type: %d", maj)
 		}
 	}
 	d.Raw = buf.Bytes()
-	return nil
+	return bytesRead, nil
 }
 
 func readByte(r io.Reader) (byte, error) {
@@ -225,59 +239,70 @@ func readByte(r io.Reader) (byte, error) {
 	return buf[0], err
 }
 
-func CborReadHeader(br io.Reader) (byte, uint64, error) {
+func CborReadHeader(br io.Reader) (byte, uint64, int, error) {
+	bytesRead := 0
+
 	first, err := readByte(br)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, bytesRead, err
 	}
+	bytesRead++
 
 	maj := (first & 0xe0) >> 5
 	low := first & 0x1f
 
 	switch {
 	case low < 24:
-		return maj, uint64(low), nil
+		return maj, uint64(low), bytesRead, nil
 	case low == 24:
 		next, err := readByte(br)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, bytesRead, err
 		}
+		bytesRead++
+
 		if next < 24 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 24 with value < 24)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 24 with value < 24)")
 		}
-		return maj, uint64(next), nil
+		return maj, uint64(next), bytesRead, nil
 	case low == 25:
 		scratch := make([]byte, 2)
-		if _, err := io.ReadAtLeast(br, scratch[:2], 2); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch[:2], 2); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := uint64(binary.BigEndian.Uint16(scratch[:2]))
 		if val <= math.MaxUint8 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 25 with value <= MaxUint8)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 25 with value <= MaxUint8)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	case low == 26:
 		scratch := make([]byte, 4)
-		if _, err := io.ReadAtLeast(br, scratch[:4], 4); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch[:4], 4); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := uint64(binary.BigEndian.Uint32(scratch[:4]))
 		if val <= math.MaxUint16 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 26 with value <= MaxUint16)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 26 with value <= MaxUint16)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	case low == 27:
 		scratch := make([]byte, 8)
-		if _, err := io.ReadAtLeast(br, scratch, 8); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch, 8); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := binary.BigEndian.Uint64(scratch)
 		if val <= math.MaxUint32 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 27 with value <= MaxUint32)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 27 with value <= MaxUint32)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	default:
-		return 0, 0, fmt.Errorf("invalid header: (%x)", first)
+		return 0, 0, bytesRead, fmt.Errorf("invalid header: (%x)", first)
 	}
 }
 
@@ -303,56 +328,66 @@ func readByteBuf(r io.Reader, scratch []byte) (byte, error) {
 }
 
 // same as the above, just tries to allocate less by using a passed in scratch buffer
-func CborReadHeaderBuf(br io.Reader, scratch []byte) (byte, uint64, error) {
+func CborReadHeaderBuf(br io.Reader, scratch []byte) (byte, uint64, int, error) {
+	bytesRead := 0
+
 	first, err := readByteBuf(br, scratch)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, bytesRead, err
 	}
+	bytesRead++
 
 	maj := (first & 0xe0) >> 5
 	low := first & 0x1f
 
 	switch {
 	case low < 24:
-		return maj, uint64(low), nil
+		return maj, uint64(low), bytesRead, nil
 	case low == 24:
 		next, err := readByteBuf(br, scratch)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, bytesRead, err
 		}
+		bytesRead++
 		if next < 24 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 24 with value < 24)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 24 with value < 24)")
 		}
-		return maj, uint64(next), nil
+		return maj, uint64(next), bytesRead, nil
 	case low == 25:
-		if _, err := io.ReadAtLeast(br, scratch[:2], 2); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch[:2], 2); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := uint64(binary.BigEndian.Uint16(scratch[:2]))
 		if val <= math.MaxUint8 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 25 with value <= MaxUint8)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 25 with value <= MaxUint8)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	case low == 26:
-		if _, err := io.ReadAtLeast(br, scratch[:4], 4); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch[:4], 4); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := uint64(binary.BigEndian.Uint32(scratch[:4]))
 		if val <= math.MaxUint16 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 26 with value <= MaxUint16)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 26 with value <= MaxUint16)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	case low == 27:
-		if _, err := io.ReadAtLeast(br, scratch[:8], 8); err != nil {
-			return 0, 0, err
+		if read, err := io.ReadAtLeast(br, scratch[:8], 8); err != nil {
+			return 0, 0, bytesRead, err
+		} else {
+			bytesRead += read
 		}
 		val := binary.BigEndian.Uint64(scratch[:8])
 		if val <= math.MaxUint32 {
-			return 0, 0, fmt.Errorf("cbor input was not canonical (lval 27 with value <= MaxUint32)")
+			return 0, 0, bytesRead, fmt.Errorf("cbor input was not canonical (lval 27 with value <= MaxUint32)")
 		}
-		return maj, val, nil
+		return maj, val, bytesRead, nil
 	default:
-		return 0, 0, fmt.Errorf("invalid header: (%x)", first)
+		return 0, 0, bytesRead, fmt.Errorf("invalid header: (%x)", first)
 	}
 }
 
@@ -450,43 +485,56 @@ func CborEncodeMajorType(t byte, l uint64) []byte {
 	}
 }
 
-func ReadTaggedByteArray(br io.Reader, exptag uint64, maxlen uint64) ([]byte, error) {
-	maj, extra, err := CborReadHeader(br)
+func ReadTaggedByteArray(br io.Reader, exptag uint64, maxlen uint64) ([]byte, int, error) {
+	bytesRead := 0
+
+	maj, extra, read, err := CborReadHeader(br)
 	if err != nil {
-		return nil, err
+		return nil, bytesRead, err
 	}
+	bytesRead += read
 
 	if maj != MajTag {
-		return nil, fmt.Errorf("expected cbor type 'tag' in input")
+		return nil, bytesRead, fmt.Errorf("expected cbor type 'tag' in input")
 	}
 
 	if extra != exptag {
-		return nil, fmt.Errorf("expected tag %d", exptag)
+		return nil, bytesRead, fmt.Errorf("expected tag %d", exptag)
 	}
 
-	return ReadByteArray(br, maxlen)
+	bs, read, err := ReadByteArray(br, maxlen)
+	if err == nil {
+		bytesRead += read
+	}
+
+	return bs, bytesRead, err
 }
 
-func ReadByteArray(br io.Reader, maxlen uint64) ([]byte, error) {
-	maj, extra, err := CborReadHeader(br)
+func ReadByteArray(br io.Reader, maxlen uint64) ([]byte, int, error) {
+	bytesRead := 0
+
+	maj, extra, read, err := CborReadHeader(br)
 	if err != nil {
-		return nil, err
+		return nil, bytesRead, err
 	}
+	bytesRead += read
 
 	if maj != MajByteString {
-		return nil, fmt.Errorf("expected cbor type 'byte string' in input")
+		return nil, bytesRead, fmt.Errorf("expected cbor type 'byte string' in input")
 	}
 
 	if extra > maxlen {
-		return nil, fmt.Errorf("string in cbor input too long, maxlen: %d", maxlen)
+		return nil, bytesRead, fmt.Errorf("string in cbor input too long, maxlen: %d", maxlen)
 	}
 
 	buf := make([]byte, extra)
-	if _, err := io.ReadAtLeast(br, buf, int(extra)); err != nil {
-		return nil, err
+	if read, err := io.ReadAtLeast(br, buf, int(extra)); err != nil {
+		return nil, bytesRead, err
+	} else {
+		bytesRead += read
 	}
 
-	return buf, nil
+	return buf, bytesRead, nil
 }
 
 var (
@@ -507,59 +555,71 @@ func WriteBool(w io.Writer, b bool) error {
 	return err
 }
 
-func ReadString(r io.Reader) (string, error) {
-	maj, l, err := CborReadHeader(r)
+func ReadString(r io.Reader) (string, int, error) {
+	bytesRead := 0
+
+	maj, l, read, err := CborReadHeader(r)
 	if err != nil {
-		return "", err
+		return "", bytesRead, err
 	}
+	bytesRead += read
 
 	if maj != MajTextString {
-		return "", fmt.Errorf("got tag %d while reading string value (l = %d)", maj, l)
+		return "", bytesRead, fmt.Errorf("got tag %d while reading string value (l = %d)", maj, l)
 	}
 
 	if l > MaxLength {
-		return "", fmt.Errorf("string in input was too long")
+		return "", bytesRead, fmt.Errorf("string in input was too long")
 	}
 
 	buf := make([]byte, l)
-	_, err = io.ReadAtLeast(r, buf, int(l))
+	read, err = io.ReadAtLeast(r, buf, int(l))
 	if err != nil {
-		return "", err
+		return "", bytesRead, err
 	}
+	bytesRead += read
 
-	return string(buf), nil
+	return string(buf), bytesRead, nil
 }
 
-func ReadStringBuf(r io.Reader, scratch []byte) (string, error) {
-	maj, l, err := CborReadHeaderBuf(r, scratch)
+func ReadStringBuf(r io.Reader, scratch []byte) (string, int, error) {
+	bytesRead := 0
+
+	maj, l, read, err := CborReadHeaderBuf(r, scratch)
 	if err != nil {
-		return "", err
+		return "", bytesRead, err
 	}
+	bytesRead += read
 
 	if maj != MajTextString {
-		return "", fmt.Errorf("got tag %d while reading string value (l = %d)", maj, l)
+		return "", bytesRead, fmt.Errorf("got tag %d while reading string value (l = %d)", maj, l)
 	}
 
 	if l > MaxLength {
-		return "", fmt.Errorf("string in input was too long")
+		return "", bytesRead, fmt.Errorf("string in input was too long")
 	}
 
 	buf := make([]byte, l)
-	_, err = io.ReadAtLeast(r, buf, int(l))
+	read, err = io.ReadAtLeast(r, buf, int(l))
 	if err != nil {
-		return "", err
+		return "", bytesRead, err
 	}
+	bytesRead += read
 
-	return string(buf), nil
+	return string(buf), bytesRead, nil
 }
 
-func ReadCid(br io.Reader) (cid.Cid, error) {
-	buf, err := ReadTaggedByteArray(br, 42, 512)
-	if err != nil {
-		return cid.Undef, err
-	}
+func ReadCid(br io.Reader) (cid.Cid, int, error) {
+	bytesRead := 0
 
-	return bufToCid(buf)
+	buf, read, err := ReadTaggedByteArray(br, 42, 512)
+	if err != nil {
+		return cid.Undef, bytesRead, err
+	}
+	bytesRead += read
+
+	cid, err := bufToCid(buf)
+	return cid, bytesRead, err
 }
 
 func bufToCid(buf []byte) (cid.Cid, error) {
@@ -637,14 +697,17 @@ func (cb CborBool) MarshalCBOR(w io.Writer) error {
 	return WriteBool(w, bool(cb))
 }
 
-func (cb *CborBool) UnmarshalCBOR(r io.Reader) error {
-	t, val, err := CborReadHeader(r)
+func (cb *CborBool) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
+
+	t, val, read, err := CborReadHeader(r)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if t != MajOther {
-		return fmt.Errorf("booleans should be major type 7")
+		return bytesRead, fmt.Errorf("booleans should be major type 7")
 	}
 
 	switch val {
@@ -653,9 +716,9 @@ func (cb *CborBool) UnmarshalCBOR(r io.Reader) error {
 	case 21:
 		*cb = true
 	default:
-		return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", val)
+		return bytesRead, fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", val)
 	}
-	return nil
+	return bytesRead, nil
 }
 
 type CborInt int64
@@ -674,30 +737,34 @@ func (ci CborInt) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (ci *CborInt) UnmarshalCBOR(r io.Reader) error {
-	maj, extra, err := CborReadHeader(r)
+func (ci *CborInt) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
+
+	maj, extra, read, err := CborReadHeader(r)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
+
 	var extraI int64
 	switch maj {
 	case MajUnsignedInt:
 		extraI = int64(extra)
 		if extraI < 0 {
-			return fmt.Errorf("int64 positive overflow")
+			return bytesRead, fmt.Errorf("int64 positive overflow")
 		}
 	case MajNegativeInt:
 		extraI = int64(extra)
 		if extraI < 0 {
-			return fmt.Errorf("int64 negative oveflow")
+			return bytesRead, fmt.Errorf("int64 negative oveflow")
 		}
 		extraI = -1 - extraI
 	default:
-		return fmt.Errorf("wrong type for int64 field: %d", maj)
+		return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 	}
 
 	*ci = CborInt(extraI)
-	return nil
+	return bytesRead, nil
 }
 
 type CborTime time.Time
@@ -710,16 +777,20 @@ func (ct CborTime) MarshalCBOR(w io.Writer) error {
 	return cbi.MarshalCBOR(w)
 }
 
-func (ct *CborTime) UnmarshalCBOR(r io.Reader) error {
+func (ct *CborTime) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
+
 	var cbi CborInt
-	if err := cbi.UnmarshalCBOR(r); err != nil {
-		return err
+	if read, err := cbi.UnmarshalCBOR(r); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 
 	t := time.Unix(0, int64(cbi))
 
 	*ct = (CborTime)(t)
-	return nil
+	return bytesRead, nil
 }
 
 func (ct CborTime) Time() time.Time {

@@ -271,81 +271,88 @@ func (t *EmbeddingStructOne) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbeddingStructOne{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 20 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Value (uint64) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -353,140 +360,148 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
 	// t.U8 (uint8) (uint8)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U8 = uint8(extra)
 	// t.U16 (uint16) (uint16)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U16 = uint16(extra)
 	// t.U32 (uint32) (uint32)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U32 = uint32(extra)
 	// t.I8 (int8) (int8)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I8 = int8(extraI)
 	}
 	// t.I16 (int16) (int16)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I16 = int16(extraI)
 	}
 	// t.I32 (int32) (int32)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I32 = int32(extraI)
 	}
 	// t.Test ([][]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Test: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Test: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -499,24 +514,27 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 			var extra uint64
 			var err error
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.Test[i] = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.Test[i][:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.Test[i][:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 		}
 	}
@@ -524,26 +542,28 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 	// t.Dog (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Dog = string(sval)
 	}
 	// t.Numbers ([]testing.NamedNumber) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Numbers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Numbers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -552,13 +572,14 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
 		}
 
 		t.Numbers[i] = testing.NamedNumber(val)
@@ -570,18 +591,21 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := uint64(extra)
 			t.Pizza = &typed
@@ -594,18 +618,21 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := testing.NamedNumber(extra)
 			t.PointyPizza = &typed
@@ -614,21 +641,22 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.Arrrrrghay ([3]testing.SimpleTypeOne) (array)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra != 3 {
-		return fmt.Errorf("expected array to have 3 elements")
+		return bytesRead, fmt.Errorf("expected array to have 3 elements")
 	}
 
 	t.Arrrrrghay = [3]testing.SimpleTypeOne{}
@@ -636,8 +664,10 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 	for i := 0; i < int(extra); i++ {
 
 		var v testing.SimpleTypeOne
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
+		if read, err := v.UnmarshalCBOR(br); err != nil {
+			return bytesRead, err
+		} else {
+			bytesRead += read
 		}
 
 		t.Arrrrrghay[i] = v
@@ -646,10 +676,11 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
@@ -659,32 +690,37 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead--
 			t.Stuff = new(testing.SimpleTypeTwo)
-			if err := t.Stuff.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			if read, err := t.Stuff.UnmarshalCBOR(br); err != nil {
+				return bytesRead, xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			} else {
+				bytesRead += read
 			}
 		}
 
 	}
 	// t.Others ([]uint64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Others: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Others: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -693,13 +729,14 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
 		}
 
 		t.Others[i] = uint64(val)
@@ -707,17 +744,18 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 	// t.SignedOthers ([]int64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -726,32 +764,33 @@ func (t *EmbeddingStructOne) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 		{
-			maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 			var extraI int64
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			switch maj {
 			case cbg.MajUnsignedInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 positive overflow")
+					return bytesRead, fmt.Errorf("int64 positive overflow")
 				}
 			case cbg.MajNegativeInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 negative oveflow")
+					return bytesRead, fmt.Errorf("int64 negative oveflow")
 				}
 				extraI = -1 - extraI
 			default:
-				return fmt.Errorf("wrong type for int64 field: %d", maj)
+				return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 			}
 
 			t.SignedOthers[i] = int64(extraI)
 		}
 	}
 
-	return nil
+	return bytesRead, nil
 }
 
 func (t *EmbeddingStructTwo) InitNilEmbeddedStruct() {
@@ -1006,67 +1045,73 @@ func (t *EmbeddingStructTwo) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbeddingStructTwo{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 20 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -1074,123 +1119,130 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
 	// t.U8 (uint8) (uint8)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U8 = uint8(extra)
 	// t.U16 (uint16) (uint16)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U16 = uint16(extra)
 	// t.U32 (uint32) (uint32)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U32 = uint32(extra)
 	// t.I8 (int8) (int8)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I8 = int8(extraI)
 	}
 	// t.I16 (int16) (int16)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I16 = int16(extraI)
 	}
 	// t.I32 (int32) (int32)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I32 = int32(extraI)
@@ -1201,18 +1253,21 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := uint64(extra)
 			t.Pizza = &typed
@@ -1225,18 +1280,21 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := testing.NamedNumber(extra)
 			t.PointyPizza = &typed
@@ -1245,21 +1303,22 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.Arrrrrghay ([3]testing.SimpleTypeOne) (array)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra != 3 {
-		return fmt.Errorf("expected array to have 3 elements")
+		return bytesRead, fmt.Errorf("expected array to have 3 elements")
 	}
 
 	t.Arrrrrghay = [3]testing.SimpleTypeOne{}
@@ -1267,8 +1326,10 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 	for i := 0; i < int(extra); i++ {
 
 		var v testing.SimpleTypeOne
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
+		if read, err := v.UnmarshalCBOR(br); err != nil {
+			return bytesRead, err
+		} else {
+			bytesRead += read
 		}
 
 		t.Arrrrrghay[i] = v
@@ -1277,10 +1338,11 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
@@ -1288,12 +1350,13 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
@@ -1304,32 +1367,37 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead--
 			t.Stuff = new(testing.SimpleTypeTwo)
-			if err := t.Stuff.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			if read, err := t.Stuff.UnmarshalCBOR(br); err != nil {
+				return bytesRead, xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			} else {
+				bytesRead += read
 			}
 		}
 
 	}
 	// t.Others ([]uint64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Others: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Others: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -1338,13 +1406,14 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
 		}
 
 		t.Others[i] = uint64(val)
@@ -1352,17 +1421,18 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	// t.SignedOthers ([]int64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -1371,25 +1441,26 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 		{
-			maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 			var extraI int64
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			switch maj {
 			case cbg.MajUnsignedInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 positive overflow")
+					return bytesRead, fmt.Errorf("int64 positive overflow")
 				}
 			case cbg.MajNegativeInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 negative oveflow")
+					return bytesRead, fmt.Errorf("int64 negative oveflow")
 				}
 				extraI = -1 - extraI
 			default:
-				return fmt.Errorf("wrong type for int64 field: %d", maj)
+				return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 			}
 
 			t.SignedOthers[i] = int64(extraI)
@@ -1398,17 +1469,18 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	// t.Test ([][]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Test: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Test: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -1421,24 +1493,27 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 			var extra uint64
 			var err error
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.Test[i] = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.Test[i][:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.Test[i][:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 		}
 	}
@@ -1446,26 +1521,28 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 	// t.Dog (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Dog = string(sval)
 	}
 	// t.Numbers ([]testing.NamedNumber) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Numbers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Numbers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -1474,19 +1551,20 @@ func (t *EmbeddingStructTwo) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
 		}
 
 		t.Numbers[i] = testing.NamedNumber(val)
 	}
 
-	return nil
+	return bytesRead, nil
 }
 
 func (t *EmbeddingStructThree) InitNilEmbeddedStruct() {
@@ -1741,46 +1819,49 @@ func (t *EmbeddingStructThree) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbeddingStructThree{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 20 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -1788,123 +1869,130 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
 	// t.U8 (uint8) (uint8)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U8 = uint8(extra)
 	// t.U16 (uint16) (uint16)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U16 = uint16(extra)
 	// t.U32 (uint32) (uint32)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajUnsignedInt {
-		return fmt.Errorf("wrong type for uint64 field")
+		return bytesRead, fmt.Errorf("wrong type for uint64 field")
 	}
 	if extra > math.MaxUint64 {
-		return fmt.Errorf("integer in input was too large for uint64 field")
+		return bytesRead, fmt.Errorf("integer in input was too large for uint64 field")
 	}
 	t.U32 = uint32(extra)
 	// t.I8 (int8) (int8)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I8 = int8(extraI)
 	}
 	// t.I16 (int16) (int16)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I16 = int16(extraI)
 	}
 	// t.I32 (int32) (int32)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.I32 = int32(extraI)
@@ -1912,10 +2000,11 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
@@ -1923,36 +2012,40 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.Stuff (testing.SimpleTypeTwo) (struct)
 
@@ -1960,32 +2053,37 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead--
 			t.Stuff = new(testing.SimpleTypeTwo)
-			if err := t.Stuff.UnmarshalCBOR(br); err != nil {
-				return xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			if read, err := t.Stuff.UnmarshalCBOR(br); err != nil {
+				return bytesRead, xerrors.Errorf("unmarshaling t.Stuff pointer: %w", err)
+			} else {
+				bytesRead += read
 			}
 		}
 
 	}
 	// t.Others ([]uint64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Others: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Others: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -1994,13 +2092,14 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Others slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Others was not a uint, instead got %d", maj)
 		}
 
 		t.Others[i] = uint64(val)
@@ -2008,17 +2107,18 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	// t.SignedOthers ([]int64) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.SignedOthers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -2027,25 +2127,26 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 		{
-			maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 			var extraI int64
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			switch maj {
 			case cbg.MajUnsignedInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 positive overflow")
+					return bytesRead, fmt.Errorf("int64 positive overflow")
 				}
 			case cbg.MajNegativeInt:
 				extraI = int64(extra)
 				if extraI < 0 {
-					return fmt.Errorf("int64 negative oveflow")
+					return bytesRead, fmt.Errorf("int64 negative oveflow")
 				}
 				extraI = -1 - extraI
 			default:
-				return fmt.Errorf("wrong type for int64 field: %d", maj)
+				return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 			}
 
 			t.SignedOthers[i] = int64(extraI)
@@ -2054,17 +2155,18 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	// t.Test ([][]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Test: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Test: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -2077,24 +2179,27 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 			var extra uint64
 			var err error
 
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
+				return bytesRead, fmt.Errorf("t.Test[i]: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
+				return bytesRead, fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
 				t.Test[i] = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(br, t.Test[i][:]); err != nil {
-				return err
+			if read, err := io.ReadFull(br, t.Test[i][:]); err != nil {
+				return bytesRead, err
+			} else {
+				bytesRead += read
 			}
 		}
 	}
@@ -2102,26 +2207,28 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 	// t.Dog (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Dog = string(sval)
 	}
 	// t.Numbers ([]testing.NamedNumber) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Numbers: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Numbers: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra > 0 {
@@ -2130,13 +2237,14 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 	for i := 0; i < int(extra); i++ {
 
-		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, val, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
+			return bytesRead, xerrors.Errorf("failed to read uint64 for t.Numbers slice: %w", err)
 		}
+		bytesRead += read
 
 		if maj != cbg.MajUnsignedInt {
-			return xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
+			return bytesRead, xerrors.Errorf("value read for array t.Numbers was not a uint, instead got %d", maj)
 		}
 
 		t.Numbers[i] = testing.NamedNumber(val)
@@ -2148,18 +2256,21 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := uint64(extra)
 			t.Pizza = &typed
@@ -2172,18 +2283,21 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 
 		b, err := br.ReadByte()
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead++
 		if b != cbg.CborNull[0] {
 			if err := br.UnreadByte(); err != nil {
-				return err
+				return bytesRead, err
 			}
-			maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+			bytesRead--
+			maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 			if err != nil {
-				return err
+				return bytesRead, err
 			}
+			bytesRead += read
 			if maj != cbg.MajUnsignedInt {
-				return fmt.Errorf("wrong type for uint64 field")
+				return bytesRead, fmt.Errorf("wrong type for uint64 field")
 			}
 			typed := testing.NamedNumber(extra)
 			t.PointyPizza = &typed
@@ -2192,21 +2306,22 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 	}
 	// t.Arrrrrghay ([3]testing.SimpleTypeOne) (array)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Arrrrrghay: array too large (%d)", extra)
 	}
 
 	if maj != cbg.MajArray {
-		return fmt.Errorf("expected cbor array")
+		return bytesRead, fmt.Errorf("expected cbor array")
 	}
 
 	if extra != 3 {
-		return fmt.Errorf("expected array to have 3 elements")
+		return bytesRead, fmt.Errorf("expected array to have 3 elements")
 	}
 
 	t.Arrrrrghay = [3]testing.SimpleTypeOne{}
@@ -2214,14 +2329,16 @@ func (t *EmbeddingStructThree) UnmarshalCBOR(r io.Reader) error {
 	for i := 0; i < int(extra); i++ {
 
 		var v testing.SimpleTypeOne
-		if err := v.UnmarshalCBOR(br); err != nil {
-			return err
+		if read, err := v.UnmarshalCBOR(br); err != nil {
+			return bytesRead, err
+		} else {
+			bytesRead += read
 		}
 
 		t.Arrrrrghay[i] = v
 	}
 
-	return nil
+	return bytesRead, nil
 }
 
 func (t *FlatStruct) InitNilEmbeddedStruct() {
@@ -2300,46 +2417,49 @@ func (t *FlatStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *FlatStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *FlatStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = FlatStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -2347,41 +2467,46 @@ func (t *FlatStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -2389,17 +2514,18 @@ func (t *FlatStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *EmbeddedStruct) InitNilEmbeddedStruct() {
@@ -2454,35 +2580,38 @@ func (t *EmbeddedStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbeddedStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbeddedStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbeddedStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 3 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Value (uint64) (uint64)
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
@@ -2490,35 +2619,39 @@ func (t *EmbeddedStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *EmbedByValueStruct) InitNilEmbeddedStruct() {
@@ -2597,46 +2730,49 @@ func (t *EmbedByValueStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbedByValueStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbedByValueStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -2644,41 +2780,46 @@ func (t *EmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -2686,17 +2827,18 @@ func (t *EmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *EmbedByPointerStruct) InitNilEmbeddedStruct() {
@@ -2779,46 +2921,49 @@ func (t *EmbedByPointerStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *EmbedByPointerStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = EmbedByPointerStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -2826,41 +2971,46 @@ func (t *EmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -2868,15 +3018,16 @@ func (t *EmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }

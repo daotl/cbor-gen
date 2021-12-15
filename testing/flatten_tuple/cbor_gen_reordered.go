@@ -95,46 +95,49 @@ func (t *ReorderedFlatStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *ReorderedFlatStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *ReorderedFlatStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = ReorderedFlatStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -142,41 +145,46 @@ func (t *ReorderedFlatStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -184,17 +192,18 @@ func (t *ReorderedFlatStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *ReorderedEmbedByValueStruct) InitNilEmbeddedStruct() {
@@ -273,46 +282,49 @@ func (t *ReorderedEmbedByValueStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *ReorderedEmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *ReorderedEmbedByValueStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = ReorderedEmbedByValueStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -320,41 +332,46 @@ func (t *ReorderedEmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -362,17 +379,18 @@ func (t *ReorderedEmbedByValueStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }
 
 func (t *ReorderedEmbedByPointerStruct) InitNilEmbeddedStruct() {
@@ -455,46 +473,49 @@ func (t *ReorderedEmbedByPointerStruct) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *ReorderedEmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
+func (t *ReorderedEmbedByPointerStruct) UnmarshalCBOR(r io.Reader) (int, error) {
+	bytesRead := 0
 	*t = ReorderedEmbedByPointerStruct{}
 	t.InitNilEmbeddedStruct()
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
 
-	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 	if maj != cbg.MajArray {
-		return fmt.Errorf("cbor input should be of type array")
+		return bytesRead, fmt.Errorf("cbor input should be of type array")
 	}
 
 	if extra != 5 {
-		return fmt.Errorf("cbor input had wrong number of fields")
+		return bytesRead, fmt.Errorf("cbor input had wrong number of fields")
 	}
 
 	// t.Signed (int64) (int64)
 	{
-		maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err := cbg.CborReadHeaderBuf(br, scratch)
 		var extraI int64
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		switch maj {
 		case cbg.MajUnsignedInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 positive overflow")
+				return bytesRead, fmt.Errorf("int64 positive overflow")
 			}
 		case cbg.MajNegativeInt:
 			extraI = int64(extra)
 			if extraI < 0 {
-				return fmt.Errorf("int64 negative oveflow")
+				return bytesRead, fmt.Errorf("int64 negative oveflow")
 			}
 			extraI = -1 - extraI
 		default:
-			return fmt.Errorf("wrong type for int64 field: %d", maj)
+			return bytesRead, fmt.Errorf("wrong type for int64 field: %d", maj)
 		}
 
 		t.Signed = int64(extraI)
@@ -502,41 +523,46 @@ func (t *ReorderedEmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
 	// t.Foo (string) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.Foo = string(sval)
 	}
 	// t.Binary ([]uint8) (slice)
 
-	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 	if err != nil {
-		return err
+		return bytesRead, err
 	}
+	bytesRead += read
 
 	if extra > cbg.ByteArrayMaxLen {
-		return fmt.Errorf("t.Binary: byte array too large (%d)", extra)
+		return bytesRead, fmt.Errorf("t.Binary: byte array too large (%d)", extra)
 	}
 	if maj != cbg.MajByteString {
-		return fmt.Errorf("expected byte array")
+		return bytesRead, fmt.Errorf("expected byte array")
 	}
 
 	if extra > 0 {
 		t.Binary = make([]uint8, extra)
 	}
 
-	if _, err := io.ReadFull(br, t.Binary[:]); err != nil {
-		return err
+	if read, err := io.ReadFull(br, t.Binary[:]); err != nil {
+		return bytesRead, err
+	} else {
+		bytesRead += read
 	}
 	// t.NString (testing.NamedString) (string)
 
 	{
-		sval, err := cbg.ReadStringBuf(br, scratch)
+		sval, read, err := cbg.ReadStringBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 
 		t.NString = testing.NamedString(sval)
 	}
@@ -544,15 +570,16 @@ func (t *ReorderedEmbedByPointerStruct) UnmarshalCBOR(r io.Reader) error {
 
 	{
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+		maj, extra, read, err = cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
-			return err
+			return bytesRead, err
 		}
+		bytesRead += read
 		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
+			return bytesRead, fmt.Errorf("wrong type for uint64 field")
 		}
 		t.Value = uint64(extra)
 
 	}
-	return nil
+	return bytesRead, nil
 }
