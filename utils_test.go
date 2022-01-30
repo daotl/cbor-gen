@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 )
 
 func TestLinkScan(t *testing.T) {
@@ -16,23 +16,31 @@ func TestLinkScan(t *testing.T) {
 	}
 
 	var cids []cid.Cid
-	if err := ScanForLinks(bytes.NewReader(inpb), func(c cid.Cid) {
+	if n, err := ScanForLinks(bytes.NewReader(inpb), func(c cid.Cid) {
 		cids = append(cids, c)
 	}); err != nil {
 		t.Fatal(err)
+	} else if n != len(inpb) {
+		t.Fatal("returned length does not match the byte length")
 	}
 	t.Log(cids)
 }
 
 func TestDeferredMaxLengthSingle(t *testing.T) {
 	var header bytes.Buffer
-	if err := WriteMajorTypeHeader(&header, MajByteString, ByteArrayMaxLen+1); err != nil {
+	if n, err := WriteMajorTypeHeader(&header, MajByteString, ByteArrayMaxLen+1); err != nil {
 		t.Fatal("failed to write header")
+	} else if n != header.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
+	l := header.Len()
 
 	var deferred Deferred
-	err := deferred.UnmarshalCBOR(&header)
+	n, err := deferred.UnmarshalCBOR(&header)
 	if err != maxLengthError {
 		t.Fatal("deferred: allowed more than the maximum allocation supported")
+	}
+	if n != l {
+		t.Fatal("returned length does not match the byte length")
 	}
 }

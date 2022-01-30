@@ -8,11 +8,11 @@ import (
 
 type CborCid cid.Cid
 
-func (c CborCid) MarshalCBOR(w io.Writer) error {
+func (c CborCid) MarshalCBOR(w io.Writer) (n int, err error) {
 	return WriteCid(w, cid.Cid(c))
 }
 
-func (c *CborCid) UnmarshalCBOR(r io.Reader) (int, error) {
+func (c *CborCid) UnmarshalCBOR(r io.Reader) (n int, err error) {
 	oc, read, err := ReadCid(r)
 	if err != nil {
 		return 0, err

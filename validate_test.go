@@ -7,10 +7,11 @@ import (
 
 func TestValidateShort(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteMajorTypeHeader(&buf, MajByteString, 100); err != nil {
+	if n, err := WriteMajorTypeHeader(&buf, MajByteString, 100); err != nil {
 		t.Fatal("failed to write header")
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
-
 	if err := ValidateCBOR(buf.Bytes()); err == nil {
 		t.Fatal("expected an error checking truncated cbor")
 	}
@@ -18,11 +19,20 @@ func TestValidateShort(t *testing.T) {
 
 func TestValidateDouble(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteBool(&buf, false); err != nil {
+	n := 0
+	if n_, err := WriteBool(&buf, false); err != nil {
 		t.Fatal(err)
+	} else if n+n_ != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
+	} else {
+		n += n_
 	}
-	if err := WriteBool(&buf, false); err != nil {
+	if n_, err := WriteBool(&buf, false); err != nil {
 		t.Fatal(err)
+	} else if n+n_ != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
+	} else {
+		n += n
 	}
 
 	if err := ValidateCBOR(buf.Bytes()); err == nil {
@@ -32,8 +42,10 @@ func TestValidateDouble(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteBool(&buf, false); err != nil {
+	if n, err := WriteBool(&buf, false); err != nil {
 		t.Fatal(err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 
 	if err := ValidateCBOR(buf.Bytes()); err != nil {

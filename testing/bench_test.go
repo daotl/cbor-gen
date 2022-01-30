@@ -28,7 +28,7 @@ func BenchmarkMarshaling(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if err := tt.MarshalCBOR(ioutil.Discard); err != nil {
+		if _, err := tt.MarshalCBOR(ioutil.Discard); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -44,7 +44,7 @@ func BenchmarkUnmarshaling(b *testing.B) {
 	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
-	if err := tt.MarshalCBOR(buf); err != nil {
+	if _, err := tt.MarshalCBOR(buf); err != nil {
 		b.Fatal(err)
 	}
 
@@ -73,7 +73,7 @@ func BenchmarkLinkScan(b *testing.B) {
 	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
-	if err := tt.MarshalCBOR(buf); err != nil {
+	if _, err := tt.MarshalCBOR(buf); err != nil {
 		b.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func BenchmarkDeferred(b *testing.B) {
 	tt := val.Interface().(types.SimpleTypeTwo)
 
 	buf := new(bytes.Buffer)
-	if err := tt.MarshalCBOR(buf); err != nil {
+	if _, err := tt.MarshalCBOR(buf); err != nil {
 		b.Fatal(err)
 	}
 

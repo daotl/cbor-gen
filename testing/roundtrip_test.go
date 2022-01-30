@@ -86,8 +86,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 
 		obj := val.Addr().Interface().(cbg.CBORMarshaler)
 		buf := new(bytes.Buffer)
-		if err := obj.MarshalCBOR(buf); err != nil {
+		if n, err := obj.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		flatenc := buf.Bytes()
 
@@ -99,8 +101,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := sv.MarshalCBOR(buf); err != nil {
+		if n, err := sv.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc := buf.Bytes()
 
@@ -116,8 +120,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := sp.MarshalCBOR(buf); err != nil {
+		if n, err := sp.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc = buf.Bytes()
 
@@ -133,8 +139,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := sr.MarshalCBOR(buf); err != nil {
+		if n, err := sr.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc = buf.Bytes()
 
@@ -150,8 +158,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := srv.MarshalCBOR(buf); err != nil {
+		if n, err := srv.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc = buf.Bytes()
 
@@ -167,8 +177,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := srp.MarshalCBOR(buf); err != nil {
+		if n, err := srp.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc = buf.Bytes()
 
@@ -186,8 +198,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 
 		obj := val.Addr().Interface().(cbg.CBORMarshaler)
 		buf := new(bytes.Buffer)
-		if err := obj.MarshalCBOR(buf); err != nil {
+		if n, err := obj.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		flatenc := buf.Bytes()
 
@@ -199,8 +213,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := sv.MarshalCBOR(buf); err != nil {
+		if n, err := sv.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc := buf.Bytes()
 
@@ -217,8 +233,10 @@ func TestFlattenEmbeddedStruct(t *testing.T) {
 			t.Fatalf("wrong bytesRead when unmarhaling: should be %d, actual %d", len(flatenc), read)
 		}
 		buf = new(bytes.Buffer)
-		if err := sp.MarshalCBOR(buf); err != nil {
+		if n, err := sp.MarshalCBOR(buf); err != nil {
 			t.Fatal("i guess its fine to fail marshaling")
+		} else if n != buf.Len() {
+			t.Fatal("returned length does not match the byte length")
 		}
 		enc = buf.Bytes()
 
@@ -232,8 +250,10 @@ func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmars
 	onlyCompareBytes bool) {
 
 	buf := new(bytes.Buffer)
-	if err := obj.MarshalCBOR(buf); err != nil {
+	if n, err := obj.MarshalCBOR(buf); err != nil {
 		t.Fatal("i guess its fine to fail marshaling")
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 
 	enc := buf.Bytes()
@@ -253,8 +273,10 @@ func testValueRoundtrip(t *testing.T, obj cbg.CBORMarshaler, nobj cbg.CBORUnmars
 	}
 
 	nbuf := new(bytes.Buffer)
-	if err := nobj.(cbg.CBORMarshaler).MarshalCBOR(nbuf); err != nil {
+	if n, err := nobj.(cbg.CBORMarshaler).MarshalCBOR(nbuf); err != nil {
 		t.Fatal("failed to remarshal object: ", err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 
 	if !bytes.Equal(nbuf.Bytes(), enc) {
@@ -288,8 +310,10 @@ func TestNilValueDeferredUnmarshaling(t *testing.T) {
 	zero.Deferred = &cbg.Deferred{Raw: []byte{0xf6}}
 
 	buf := new(bytes.Buffer)
-	if err := zero.MarshalCBOR(buf); err != nil {
+	if n, err := zero.MarshalCBOR(buf); err != nil {
 		t.Fatal(err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 	enc := buf.Bytes()
 
@@ -319,8 +343,10 @@ func TestTimeIsh(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := val.MarshalCBOR(buf); err != nil {
+	if n, err := val.MarshalCBOR(buf); err != nil {
 		t.Fatal(err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 	enc := buf.Bytes()
 
@@ -385,8 +411,10 @@ func TestLessToMoreFieldsRoundTrip(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := obj.MarshalCBOR(buf); err != nil {
+	if n, err := obj.MarshalCBOR(buf); err != nil {
 		t.Fatal("failed marshaling", err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 
 	enc := buf.Bytes()
@@ -496,8 +524,10 @@ func TestMoreToLessFieldsRoundTrip(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := obj.MarshalCBOR(buf); err != nil {
+	if n, err := obj.MarshalCBOR(buf); err != nil {
 		t.Fatal("failed marshaling", err)
+	} else if n != buf.Len() {
+		t.Fatal("returned length does not match the byte length")
 	}
 
 	enc := buf.Bytes()
